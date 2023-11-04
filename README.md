@@ -29,5 +29,3 @@ You can then execute the main script as follows
 ```sh
 python3 src/main.py
 ```
-
-Make sure also to initialize the DB the first time you activate the application.
