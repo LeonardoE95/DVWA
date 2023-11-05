@@ -3,8 +3,6 @@
 import requests
 from bs4 import BeautifulSoup
 
-from conf import URL
-
 from sqli.low import sqli_low
 from sqli.medium import sqli_medium
 from sqli.high import sqli_high
@@ -20,13 +18,13 @@ def main():
     init_app()
 
     # -----------------------------
-    # sqli_low(URL)
-    # sqli_medium(URL)
-    # sqli_high(URL)
+    # sqli_low()
+    # sqli_medium()
+    # sqli_high()
 
     # -----------------------------
-    # sqli_blind_low(URL)
-    sqli_blind_medium(URL)
+    # sqli_blind_low()
+    # sqli_blind_medium()
     
 if __name__ == "__main__":
     main()

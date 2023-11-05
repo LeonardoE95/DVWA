@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-URL = "http://evil"
+BASE_URL = "http://evil"
 
 USERNAME = "admin"
 

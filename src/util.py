@@ -3,7 +3,7 @@
 import requests
 from bs4 import BeautifulSoup
 
-from conf import USERNAME, PASSWORD, URL, PHP_ID, PROXIES
+from conf import USERNAME, PASSWORD, BASE_URL, PHP_ID, PROXIES
 
 # ----------------------------------------------
 
@@ -12,12 +12,12 @@ from conf import USERNAME, PASSWORD, URL, PHP_ID, PROXIES
 # attacks will not work.
 # 
 def init_app():
-    global USERNAME, PASSWORD, URL, PHP_ID
+    global USERNAME, PASSWORD, BASE_URL, PHP_ID
     
     if not PHP_ID:
-        PHP_ID = get_auth_cookie(URL, USERNAME, PASSWORD)
+        PHP_ID = get_auth_cookie(BASE_URL, USERNAME, PASSWORD)
 
-    url = URL + "/setup.php"
+    url = BASE_URL + "/setup.php"
         
     # extract CSRF token
     custom_headers = { "Cookie": f"PHPSESSID={PHP_ID}; security=low" }    
@@ -86,6 +86,8 @@ def http_get(url, difficulty, headers=None, params=None):
         
     custom_headers = { "Cookie": f"PHPSESSID={PHP_ID}; security={difficulty}"}
     return requests.get(url, headers=custom_headers, params=params)
+
+# ----------------------------------------------
 
 def http_post(url, difficulty, headers=None, data=None):
     global PHP_ID, USERNAME, PASSWORD
