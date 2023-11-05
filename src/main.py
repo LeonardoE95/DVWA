@@ -23,7 +23,7 @@ def main():
     # sqli_high()
 
     # -----------------------------
-    # sqli_blind_low()
+    sqli_blind_low()
     # sqli_blind_medium()
     
 if __name__ == "__main__":
