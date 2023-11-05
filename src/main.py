@@ -5,11 +5,12 @@ from bs4 import BeautifulSoup
 
 from conf import URL
 
-from sqli.low import sqli_low, PAYLOADS as SQLI_LOW_PAYLOADS
-from sqli.medium import sqli_medium, PAYLOADS as SQLI_MEDIUM_PAYLOADS
-from sqli.high import sqli_high, PAYLOADS as SQLI_HIGH_PAYLOADS
+from sqli.low import sqli_low
+from sqli.medium import sqli_medium
+from sqli.high import sqli_high
 
 from sqli_blind.low import sqli_blind_low
+from sqli_blind.medium import sqli_blind_medium
 
 from util import init_app
 
@@ -19,12 +20,13 @@ def main():
     init_app()
 
     # -----------------------------
-    # sqli_low(URL, SQLI_LOW_PAYLOADS)
-    # sqli_medium(URL, SQLI_MEDIUM_PAYLOADS)
-    # sqli_high(URL, SQLI_HIGH_PAYLOADS)
+    # sqli_low(URL)
+    # sqli_medium(URL)
+    # sqli_high(URL)
 
     # -----------------------------
-    sqli_blind_low(URL)
+    # sqli_blind_low(URL)
+    sqli_blind_medium(URL)
     
 if __name__ == "__main__":
     main()

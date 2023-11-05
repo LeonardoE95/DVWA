@@ -72,5 +72,35 @@ def get_auth_cookie(url, username, password):
 
     return php_id
 
+# ----------------------------------------------
     
+def http_get(url, difficulty, headers=None, params=None):
+    global PHP_ID, USERNAME, PASSWORD
     
+    if not PHP_ID:
+        PHP_ID = get_auth_cookie(URL, USERNAME, PASSWORD)
+
+    if difficulty not in ["low", "medium", "high"]:
+        print(f"[ERROR]: difficulty value ({difficulty}) not supported")
+        exit()
+        
+    custom_headers = { "Cookie": f"PHPSESSID={PHP_ID}; security={difficulty}"}
+    return requests.get(url, headers=custom_headers, params=params)
+
+def http_post(url, difficulty, headers=None, data=None):
+    global PHP_ID, USERNAME, PASSWORD
+    
+    if not PHP_ID:
+        PHP_ID = get_auth_cookie(URL, USERNAME, PASSWORD)
+
+    if difficulty not in ["low", "medium", "high"]:
+        print(f"[ERROR]: difficulty value ({difficulty}) not supported")
+        exit()
+        
+    custom_headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Cookie": f"PHPSESSID={PHP_ID}; security={difficulty}"
+    }
+    
+    return requests.post(url, headers=custom_headers, data=data)
+
