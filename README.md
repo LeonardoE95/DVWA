@@ -29,3 +29,22 @@ You can then execute the main script as follows
 ```sh
 python3 src/main.py
 ```
+
+# Challenges Completed
+
+Currently the following challenges have been completed
+
+- [X] SQL Injection
+- [X] SQL Injection Blind
+- [ ] Brute Force
+- [ ] Command Injection
+- [ ] Client Side Request Forgery (CSRF)
+- [ ] File Inclusion 
+- [ ] File Upload
+- [ ] Insecure CAPTCHA
+- [ ] Weak Session IDs
+- [ ] XSS (DOM)
+- [ ] XSS (Reflected)
+- [ ] XSS (Stored)
+- [ ] CSP Bypass
+- [ ] Javascript

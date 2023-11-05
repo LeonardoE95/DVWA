@@ -9,6 +9,7 @@ from sqli.high import sqli_high
 
 from sqli_blind.low import sqli_blind_low
 from sqli_blind.medium import sqli_blind_medium
+from sqli_blind.high import sqli_blind_high
 
 from util import init_app
 
@@ -23,8 +24,10 @@ def main():
     # sqli_high()
 
     # -----------------------------
-    sqli_blind_low()
+    # sqli_blind_low()
     # sqli_blind_medium()
+    sqli_blind_high()
     
 if __name__ == "__main__":
     main()
+
