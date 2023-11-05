@@ -110,4 +110,7 @@ def http_post(url, difficulty, headers=None, data=None, cookies=None, timeout=No
     return requests.post(url, headers=custom_headers, data=data, timeout=timeout)
 
 def create_cookie(cookies):
-    return ";".join([f"{key}={cookies[key]}" for key in cookies])
+    if not cookies:
+        return ""
+    else:
+        return ";".join([f"{key}={cookies[key]}" for key in cookies])

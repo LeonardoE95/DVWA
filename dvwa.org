@@ -539,7 +539,7 @@ $query = "SELECT first_name, last_name FROM users WHERE user_id = '{$escaped_id}
   
     5. Come è implementata la scheda di rete che riceve i dati dal cavo?
      
-* DOING 02 – SQL Injection (Blind)
+* DONE 02 – SQL Injection (Blind)
 ** DONE Low
 
    - [[https://www.youtube.com/watch?v=GTol6pnDMsw][DVWA – Blind SQL Injections | easy (ITA)]]
@@ -770,7 +770,7 @@ if __name__ == "__main__":
         print(f"La password di {user} è {password}")
     #+end_src
 
-** TODO High
+** DONE High
    [2023-11-01 mer 20:43]
 
    The challenge is that when we click on "here to change your ID", a

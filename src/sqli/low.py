@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import requests
-import urllib3
 from bs4 import BeautifulSoup
 
 from conf import BASE_URL
