@@ -14,6 +14,10 @@ from util import init_app
 # from bruteforce.medium import bruteforce_medium
 # from bruteforce.high import bruteforce_high
 
+# from command_injection.low import command_injection_low
+# from command_injection.medium import command_injection_medium
+# from command_injection.high import command_injection_high
+
 # --------------------------------
 
 def main():
@@ -33,7 +37,14 @@ def main():
     # bruteforce_low()
     # bruteforce_medium()
     # bruteforce_high()
-    
+
+    # -----------------------------
+    # command_injection_low()
+    # command_injection_medium()
+    # command_injection_high()
+
+# --------------------------------
+
 if __name__ == "__main__":
     main()
 

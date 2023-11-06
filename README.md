@@ -5,7 +5,7 @@ In this repository you will find solutions in terms of python code of the variou
 To start the application I highly suggest to use the docker image
 
 ```sh
-docker run --name dvwa --rm -d -it -p 80:80 vulnerables/web-dvwa
+docker run --name dvwa --rm -d -it -p80:80 vulnerables/web-dvwa
 ```
 
 Then, to correctly executes the script, first create a python virtual environment 
@@ -37,7 +37,7 @@ Currently the following challenges have been completed
 - [X] SQL Injection
 - [X] SQL Injection Blind
 - [X] Brute Force
-- [ ] Command Injection
+- [X] Command Injection
 - [ ] Client Side Request Forgery (CSRF)
 - [ ] File Inclusion 
 - [ ] File Upload
