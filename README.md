@@ -38,7 +38,7 @@ Currently the following challenges have been completed
 - [X] SQL Injection Blind
 - [X] Brute Force
 - [X] Command Injection
-- [ ] Client Side Request Forgery (CSRF)
+- [X] Client Side Request Forgery (CSRF)
 - [ ] File Inclusion 
 - [ ] File Upload
 - [ ] Insecure CAPTCHA
