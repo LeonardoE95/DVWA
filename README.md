@@ -64,6 +64,6 @@ Currently the following challenges have been completed
 - [ ] Weak Session IDs
 - [ ] XSS (DOM)
 - [X] XSS (Reflected)
-- [ ] XSS (Stored)
+- [X] XSS (Stored)
 - [ ] CSP Bypass
 - [ ] Javascript
