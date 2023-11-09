@@ -58,7 +58,7 @@ Currently the following challenges have been completed
 - [X] Brute Force
 - [X] Command Injection
 - [X] Client Side Request Forgery (CSRF)
-- [ ] File Inclusion
+- [X] File Inclusion
 - [X] File Upload
 - [ ] Insecure CAPTCHA
 - [ ] Weak Session IDs

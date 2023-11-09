@@ -1,0 +1,53 @@
+#+TITLE: DVWA - File Inclusion High
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  Here the code looks as follows
+
+  #+begin_src php
+<?php
+
+// The page we wish to display
+$file = $_GET[ 'page' ];
+
+// Input validation
+if( !fnmatch( "file*", $file ) && $file != "include.php" ) {
+    // This isn't the page we want!
+    echo "ERROR: File not found!";
+    exit;
+}
+
+?>
+  #+end_src
+
+  We have two validation checks:
+
+  - the ~fnmatch()~ function in PHP matches strings against patterns
+    using shell-style wildcards. In our case it matches any file that
+    starts with ~file~.
+
+  - The ~$file != include.php~ includes a special case such that the if
+    fails only when the file that doesn't start with ~file~ is exactly
+    ~include.php~
+  
+* Solution
+  In terms of LFI exploitation, the code only checks if the parameter
+  starts with ~file~, and it does not check on how it ends. Therefore we
+  can use the following GET to leak the passwd file
+
+  #+begin_example
+http://evil/vulnerabilities/fi/?page=file/../../../../../../../etc/passwd
+  #+end_example
+
+  however we cannot seem to able to use the php filters to leak php
+  code by using the base64 converter.
+
+  ------------
+
+  Another solution has to do with the fact that we can use the ~file~
+  protocol to read any file in the system given its path.
+
+  #+begin_example
+http://evil/vulnerabilities/fi/?page=file:///etc/passwd
+http://evil/vulnerabilities/fi/?page=file:///var/www/html/hackable/flags/fi.php
+  #+end_example

