@@ -2,13 +2,32 @@
 
 In this repository you will find solutions in terms of python code of the various challanged made available by the famous DVWA. 
 
-To start the application I highly suggest to use the docker image
+To start the application, you can either use the `vulnerables/web-dvwa` image, which is pre-built but lacks some configuration for two modules (`File Inclusion`, and `Insecure CAPTCHA`)
 
 ```sh
 docker run --name dvwa --rm -d -it -p80:80 vulnerables/web-dvwa
 ```
 
-Then, to correctly executes the script, first create a python virtual environment 
+Or you can build an extension of the docker image I have developed on
+top of the previous one. To build the extension just put your
+re-CAPTCHA keys within a `.env` file in the main folder of the
+project. The file should look as follows
+
+```
+CAPTCHA_PUBLIC=<YOUR_KEY>
+CAPTCHA_PRIVATE=<YOUR_KEY>
+```
+
+then perform the build and activate the docker
+
+```
+docker build -t dvwa .
+docker run --name dvwa --rm -d -it -p80:80 dvwa
+```
+
+------------
+
+Finally, to correctly executes the script, first create a python virtual environment 
 
 ```sh
 python3 -m venv venv
