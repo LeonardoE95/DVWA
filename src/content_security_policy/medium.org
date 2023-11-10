@@ -1,0 +1,6 @@
+#+TITLE: DVWA - CSP Medium
+#+AUTHOR: Leonardo Tamiano
+
+* TODO Description
+  CSP header now uses ~nonce~...  
+* TODO Solution
