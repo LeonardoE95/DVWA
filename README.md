@@ -66,4 +66,4 @@ Currently the following challenges have been completed
 - [X] XSS (Reflected)
 - [X] XSS (Stored)
 - [X] CSP Bypass
-- [ ] Javascript
+- [X] Javascript

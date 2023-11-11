@@ -1,0 +1,57 @@
+#+TITLE: DVWA - Javascript Medium
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  Same as the low difficulty level, but now the code used to compute
+  the proper token is as follows
+
+  #+begin_src js
+function do_something(e) {
+    for (var t = "", n = e.length - 1; n >= 0; n--)
+        t += e[n];
+    return t
+}
+
+setTimeout(function() { do_elsesomething("XX") }, 300);
+
+function do_elsesomething(e) {
+    document.getElementById("token").value = do_something(e + document.getElementById("phrase").value + "XX")
+}
+  #+end_src
+  
+* Solution
+  This means that we can compute the propery code as follows
+
+  #+begin_src js
+do_something("XX" + "success" + "XX")
+  #+end_src
+
+  which give us the token
+
+  #+begin_example
+XXsseccusXX
+  #+end_example
+
+  we can submit it with the following HTTP request
+
+  #+begin_example
+POST /vulnerabilities/javascript/ HTTP/1.1
+Host: evil
+Content-Length: 44
+Pragma: no-cache
+Cache-Control: no-cache
+Upgrade-Insecure-Requests: 1
+Origin: http://evil
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/javascript/
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=q4oi9u653ghup1cak2qsqd0bt7; security=medium
+Connection: close
+
+token=XXsseccusXX&phrase=success&send=Submit
+  #+end_example
+
+  which once again gets us the "Well done!"

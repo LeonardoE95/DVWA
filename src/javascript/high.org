@@ -1,0 +1,158 @@
+#+TITLE: DVWA - Javascript High
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  Same setup as before, but now the code to compute the token is as
+  follows is very different and obfusctated and can be accessed at the
+  following URL
+
+  http://evil/vulnerabilities/javascript/source/high.js
+
+  where ~evil~ is the hostname where you host your DVWA instance 
+
+* Solution
+  The high.js code is highly obfuscated. Notice how at the end of the
+  script there is an ~eval~ statement. This statement executes some
+  obfuscated javascript
+
+  #+begin_src js
+eval(function(d,e,f,g,h,i){h=function(j){return(j<e?'':h(parseInt(j/e)))+((j=j%e)>0x23?String[b('0x0')](j+0x1d):j[b('0x1')](0x24));};if(!''[b('0x2')](/^/,String)){while(f--){i[h(f)]=g[f]||h(f);}g=[function(k){if('wpA'!==b('0x3')){return i[k];}else{while(f--){i[k(f)]=g[f]||k(f);}g=[function(l){return i[l];}];k=function(){return b('0x4');};f=0x1;}}];h=function(){return b('0x4');};f=0x1;};while(f--){if(g[f]){if(b('0x5')===b('0x6')){return i[h];}else{d=d[b('0x2')](new RegExp('\x5cb'+h(f)+'\x5cb','g'),g[f]);}}}return d;}(b('0x7'),0x3e,0x137,b('0x8')[b('0x9')]('|'),0x0,{}));
+  #+end_src
+
+  of this blob we see the definition of a function that is called with
+  its arguments. In particular, we extract the function
+
+  #+begin_src js
+function test(d, e, f, g, h, i) {
+    h = function(j) {
+        return (j < e ? '' : h(parseInt(j / e))) + ((j = j % e) > 0x23 ? String[b('0x0')](j + 0x1d) : j[b('0x1')](0x24));
+    }
+    ;
+    if (!''[b('0x2')](/^/, String)) {
+        while (f--) {
+            i[h(f)] = g[f] || h(f);
+        }
+        g = [function(k) {
+            if ('wpA' !== b('0x3')) {
+                return i[k];
+            } else {
+                while (f--) {
+                    i[k(f)] = g[f] || k(f);
+                }
+                g = [function(l) {
+                    return i[l];
+                }
+                ];
+                k = function() {
+                    return b('0x4');
+                }
+                ;
+                f = 0x1;
+            }
+        }
+        ];
+        h = function() {
+            return b('0x4');
+        }
+        ;
+        f = 0x1;
+    }
+    ;while (f--) {
+        if (g[f]) {
+            if (b('0x5') === b('0x6')) {
+                return i[h];
+            } else {
+                d = d[b('0x2')](new RegExp('\x5cb' + h(f) + '\x5cb','g'), g[f]);
+            }
+        }
+    }
+    return d;
+}
+  #+end_src
+
+  and we call it as follows
+
+  #+begin_src js
+test(b('0x7'),0x3e,0x137,b('0x8')[b('0x9')]('|'),0x0,{})
+  #+end_src
+
+  and this gives us another obfuscated javascript code. Of that code
+  we're interested in the last lines
+
+  #+begin_src js
+function do_something(e){
+  for(var t="",n=e.length-1 ;n>=0 ;n--)
+    t+=e[n];
+  return t
+}
+
+function token_part_1(a,b){
+   document.getElementById("token").value=do_something(document.getElementById("phrase").value)
+}
+
+function token_part_2(e="YY"){
+  document.getElementById("token").value=sha256(e+document.getElementById("token").value)
+}
+
+function token_part_3(t,y="ZZ"){
+  document.getElementById("token").value=sha256(document.getElementById("token").value+y)
+}
+
+document.getElementById("phrase").value="";
+setTimeout(function(){token_part_2("XX")},300);
+document.getElementById("send").addEventListener("click",token_part_3);
+token_part_1("ABCD",44);
+  #+end_src
+
+  We can re-order these statements based on the order of execution
+
+  #+begin_src js
+token_part_1("ABCD",44);
+token_part_2("XX")
+token_part_3()
+  #+end_src
+
+  if we then unwrap these functions to understand exactly how they're
+  manipulating the input we obtain the following
+
+  #+begin_example
+part1 -> do_something("success")
+part2 -> sha256("XX" + do_something("success"))
+part3 -> sha256(sha256("XX" + do_something("success")) + "ZZ")
+  #+end_example
+
+  this means that at the end of the day starting from the initial phrase to the final token we obtain the following
+
+  #+begin_src js
+sha256(sha256("XX" + do_something("success")) + "ZZ")
+  #+end_src
+
+  this gives us the following token
+
+  #+begin_example
+ec7ef8687050b6fe803867ea696734c67b541dfafb286a0b1239f42ac5b0aa84
+  #+end_example
+
+  we can send it with the following HTTP request
+
+  #+begin_example
+POST /vulnerabilities/javascript/ HTTP/1.1
+Host: evil
+Content-Length: 97
+Pragma: no-cache
+Cache-Control: no-cache
+Upgrade-Insecure-Requests: 1
+Origin: http://evil
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/javascript/
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=q4oi9u653ghup1cak2qsqd0bt7; security=high
+Connection: close
+
+token=ec7ef8687050b6fe803867ea696734c67b541dfafb286a0b1239f42ac5b0aa84&phrase=success&send=Submit
+  #+end_example
+
+  and we get the ~Well Done!~ message!

@@ -1,0 +1,63 @@
+#+TITLE: DVWA - Javascript Low
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  We have to submit the word ~success~ to win within a form.  
+  
+* Solution
+  To actually submit it we need to understand how the proper token is
+  computed. Because if we simply write ~success~ and submit it we get
+  "wrong token" message.
+
+  By analzing the javscript of the page we see the following
+
+  #+begin_src js
+function generate_token() {
+    var phrase = document.getElementById("phrase").value;
+    document.getElementById("token").value = md5(rot13(phrase));
+}
+  #+end_src
+
+  as we can see, it computes the ~md5()~ of the ~rot13()~ of the
+  phrase. We therefore apply this chain of functions to the phrase
+  "success", to get
+
+  - First we apply ~rot13()~
+
+    #+begin_example
+success --> fhpprff
+    #+end_example
+
+  - Second we apply ~md5()~
+
+    #+begin_example
+$ echo -n "fhpprff" | md5sum
+38581812b435834ebf84ebcc2c6424d6
+    #+end_example
+
+  and we get the token ~38581812b435834ebf84ebcc2c6424d6~. We therefore
+  submit the token with the following HTTP request
+
+  #+begin_example
+POST /vulnerabilities/javascript/ HTTP/1.1
+Host: evil
+Content-Length: 65
+Pragma: no-cache
+Cache-Control: no-cache
+Upgrade-Insecure-Requests: 1
+Origin: http://evil
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/javascript/
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=q4oi9u653ghup1cak2qsqd0bt7; security=low
+Connection: close
+
+token=38581812b435834ebf84ebcc2c6424d6&phrase=success&send=Submit
+  #+end_example
+
+  and we get the "Well done" message
+
+  [[./img/low.png]]
