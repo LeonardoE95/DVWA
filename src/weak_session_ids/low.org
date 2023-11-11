@@ -1,0 +1,63 @@
+#+TITLE: DVWA - Weak Session ID Low
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  We have a form that allows us to generate new session ids upon a click.
+
+  we send the request as follows
+
+  #+begin_example
+POST /vulnerabilities/weak_id/ HTTP/1.1
+Host: evil
+Content-Length: 0
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+Origin: http://evil
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/weak_id/
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: dvwaSession=4; PHPSESSID=okj3e07sr9perkt4jcl4uvjh72; security=low
+Connection: close
+  #+end_example
+
+  and we obtain the response, where the cookie is sent as the cookie ~dvwaSession~
+
+  #+begin_example
+HTTP/1.1 200 OK
+Date: Sat, 11 Nov 2023 12:01:36 GMT
+Server: Apache/2.4.25 (Debian)
+Expires: Tue, 23 Jun 2009 12:00:00 GMT
+Cache-Control: no-cache, must-revalidate
+Pragma: no-cache
+Set-Cookie: dvwaSession=5
+Vary: Accept-Encoding
+Content-Length: 3511
+Connection: close
+Content-Type: text/html;charset=utf-8
+  #+end_example
+  
+* Solution
+  The vulnerability here lies on the fact that if you generate
+  multiple cookie you see that they are obtianed incrementally by one
+  each time. This means that they are completely predictable.
+
+  Indeed, the source code is as follows
+
+  #+begin_src php
+<?php
+
+$html = "";
+
+if ($_SERVER['REQUEST_METHOD'] == "POST") {
+    if (!isset ($_SESSION['last_session_id'])) {
+        $_SESSION['last_session_id'] = 0;
+    }
+    $_SESSION['last_session_id']++;
+    $cookie_value = $_SESSION['last_session_id'];
+    setcookie("dvwaSession", $cookie_value);
+}
+?>
+  #+end_src

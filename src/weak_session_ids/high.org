@@ -1,0 +1,61 @@
+#+TITLE: DVWA - Weak Session ID High
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  The setup is the same as the one described in the low difficulty.
+  
+* Solution
+  In this challenge we see session IDs which look like values computed
+  through an hash function. In particular the first request we do
+  after login gives us the following
+
+  #+begin_example
+HTTP/1.1 200 OK
+Date: Sat, 11 Nov 2023 12:19:32 GMT
+Server: Apache/2.4.25 (Debian)
+Expires: Tue, 23 Jun 2009 12:00:00 GMT
+Cache-Control: no-cache, must-revalidate
+Pragma: no-cache
+Set-Cookie: dvwaSession=c4ca4238a0b923820dcc509a6f75849b; expires=Sat, 11-Nov-2023 13:19:32 GMT; Max-Age=3600; path=/vulnerabilities/weak_id/; domain=evil
+Vary: Accept-Encoding
+Content-Length: 3514
+Connection: close
+Content-Type: text/html;charset=utf-8
+  #+end_example
+
+  The hash value itself
+
+  #+begin_example
+c4ca4238a0b923820dcc509a6f75849b
+  #+end_example
+
+  which when using tools to identify the hash suggests this is a *MD5 hash*.
+
+  -------------
+
+  To understand the vulnerability here we have to realize that
+  everytime we reset our session cookie (the PHPSESID cookie), the
+  cookie we get from the dvwaSession is the same. This suggests that
+  there is a counter underneath that is being updated for every
+  request, however we do not see the counter direct value but rather
+  we see it's hashed value.
+
+  If we check the code we can see that this is the case
+
+  #+begin_src php
+
+<?php
+
+$html = "";
+
+if ($_SERVER['REQUEST_METHOD'] == "POST") {
+    if (!isset ($_SESSION['last_session_id_high'])) {
+        $_SESSION['last_session_id_high'] = 0;
+    }
+    $_SESSION['last_session_id_high']++;
+    $cookie_value = md5($_SESSION['last_session_id_high']);
+    setcookie("dvwaSession", $cookie_value, time()+3600, "/vulnerabilities/weak_id/", $_SERVER['HTTP_HOST'], false, false);
+}
+
+?>
+  #+end_src

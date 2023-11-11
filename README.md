@@ -61,7 +61,7 @@ Currently the following challenges have been completed
 - [X] File Inclusion
 - [X] File Upload
 - [ ] Insecure CAPTCHA
-- [ ] Weak Session IDs
+- [X] Weak Session IDs
 - [ ] XSS (DOM)
 - [X] XSS (Reflected)
 - [X] XSS (Stored)

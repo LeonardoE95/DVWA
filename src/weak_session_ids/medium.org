@@ -1,0 +1,66 @@
+#+TITLE: DVWA - Weak Session ID Medium
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  The setup is the same as the one described in the low difficulty.
+  
+* Solution
+  For this medium challenge the session ID is generated
+  incrementally. If we make many requests in the same second however
+  notice how the value obtained does not change.
+
+  For example, consider the following two responses
+
+  - *Response 1*
+
+    #+begin_example
+HTTP/1.1 200 OK
+Date: Sat, 11 Nov 2023 12:08:46 GMT
+Server: Apache/2.4.25 (Debian)
+Expires: Tue, 23 Jun 2009 12:00:00 GMT
+Cache-Control: no-cache, must-revalidate
+Pragma: no-cache
+Set-Cookie: dvwaSession=1699704526
+Vary: Accept-Encoding
+Content-Length: 3520
+Connection: close
+Content-Type: text/html;charset=utf-8
+    #+end_example
+
+  - *Response 2*
+  
+    #+begin_example
+HTTP/1.1 200 OK
+Date: Sat, 11 Nov 2023 12:08:46 GMT
+Server: Apache/2.4.25 (Debian)
+Expires: Tue, 23 Jun 2009 12:00:00 GMT
+Cache-Control: no-cache, must-revalidate
+Pragma: no-cache
+Set-Cookie: dvwaSession=1699704526
+Vary: Accept-Encoding
+Content-Length: 3520
+Connection: close
+Content-Type: text/html;charset=utf-8
+    #+end_example
+
+  Notice how in these two requests the ~Date~ and ~dvwaSession~ fields
+  value are respectively the same.
+
+  Indeed, if we check the source code we can see that the token is
+  generated starting from the ~time()~ function in PHP
+
+  #+begin_src php
+<?php
+
+$html = "";
+
+if ($_SERVER['REQUEST_METHOD'] == "POST") {
+    $cookie_value = time();
+    setcookie("dvwaSession", $cookie_value);
+}
+?>
+  #+end_src
+
+  This function returns the ~Unix timestamp~, which is the current time
+  measured in the number of seconds since the Unix Epoch
+  (January 1 1970 00:00:00 GMT).
