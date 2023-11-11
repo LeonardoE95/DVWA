@@ -62,7 +62,7 @@ Currently the following challenges have been completed
 - [X] File Upload
 - [ ] Insecure CAPTCHA
 - [X] Weak Session IDs
-- [ ] XSS (DOM)
+- [X] XSS (DOM)
 - [X] XSS (Reflected)
 - [X] XSS (Stored)
 - [X] CSP Bypass
