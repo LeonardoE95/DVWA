@@ -24,7 +24,10 @@ Content-Type: text/html;charset=utf-8
 script-src 'self' https://pastebin.com  example.com code.jquery.com https://ssl.google-analytics.com ;
   #+end_example
 
-  this tells us that we can load javascript sources from:
+  The CSP is used to determine which resources the browser can load
+  and which is not allowed to load. In this particular example the CSP
+  header tells the browser that it can load javascript sources from
+  the following sources
 
   - https://pastebin.com
   - example.com
