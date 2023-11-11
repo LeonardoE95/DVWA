@@ -54,7 +54,11 @@ def get_auth_cookie(url, username, password):
     r = requests.get(url)
 
     # extract PHPSESSID cookie and CSRF token
-    cookies = r.headers['Set-Cookie']
+    try:
+        cookies = r.headers['Set-Cookie']
+    except KeyError as e:
+        print("[ERROR] - Server did not send PHPSESSID cookie, need to init DVWA")
+        exit()        
     php_id = cookies.split(";")[0].split("=")[1]
 
     soup = BeautifulSoup(r.text, "html.parser")
@@ -78,7 +82,7 @@ def http_get(url, difficulty, headers=None, params=None, cookies=None, timeout=N
     global PHP_ID, USERNAME, PASSWORD
     
     if not PHP_ID:
-        PHP_ID = get_auth_cookie(URL, USERNAME, PASSWORD)
+        PHP_ID = get_auth_cookie(url, USERNAME, PASSWORD)
 
     if difficulty not in ["low", "medium", "high"]:
         print(f"[ERROR]: difficulty value ({difficulty}) not supported")
@@ -87,6 +91,10 @@ def http_get(url, difficulty, headers=None, params=None, cookies=None, timeout=N
     custom_headers = {
         "Cookie": f"PHPSESSID={PHP_ID}; security={difficulty};" + create_cookie(cookies),
     }
+
+    if headers:
+        for h in headers:
+            custom_headers[h] = headers[h]    
     
     return requests.get(url, headers=custom_headers, params=params, timeout=timeout)
 
@@ -96,7 +104,7 @@ def http_post(url, difficulty, headers=None, data=None, cookies=None, timeout=No
     global PHP_ID, USERNAME, PASSWORD
     
     if not PHP_ID:
-        PHP_ID = get_auth_cookie(URL, USERNAME, PASSWORD)
+        PHP_ID = get_auth_cookie(url, USERNAME, PASSWORD)
 
     if difficulty not in ["low", "medium", "high"]:
         print(f"[ERROR]: difficulty value ({difficulty}) not supported")
@@ -106,7 +114,11 @@ def http_post(url, difficulty, headers=None, data=None, cookies=None, timeout=No
         "Content-Type": "application/x-www-form-urlencoded",
         "Cookie": f"PHPSESSID={PHP_ID}; security={difficulty};" + create_cookie(cookies),
     }
-    
+
+    if headers:
+        for h in headers:
+            custom_headers[h] = headers[h]
+            
     return requests.post(url, headers=custom_headers, data=data, timeout=timeout)
 
 def create_cookie(cookies):

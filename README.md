@@ -60,7 +60,7 @@ Currently the following challenges have been completed
 - [X] Client Side Request Forgery (CSRF)
 - [X] File Inclusion
 - [X] File Upload
-- [ ] Insecure CAPTCHA
+- [X] Insecure CAPTCHA
 - [X] Weak Session IDs
 - [X] XSS (DOM)
 - [X] XSS (Reflected)

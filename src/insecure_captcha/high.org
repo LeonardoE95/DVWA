@@ -1,0 +1,42 @@
+#+TITLE: DVWA - Insecure CAPTCHA High
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  Same setup as before, but php code server-side is different.
+
+  Now there is a sort of back-door introduced by the developer which
+  allows one's to skip the CAPTCHA key assuming that they have
+
+  - HTTP_USER_AGENT with the value ~reCAPTCHA~
+  - POST parameter named ~g-recaptcha-response~ with value ~hidd3n_valu3~
+
+  #+begin_src php
+if( isset( $_POST[ 'Change' ] ) ) {
+    // Hide the CAPTCHA form
+    $hide_form = true;
+
+    // Get input
+    $pass_new  = $_POST[ 'password_new' ];
+    $pass_conf = $_POST[ 'password_conf' ];
+
+    // Check CAPTCHA from 3rd party
+    $resp = recaptcha_check_answer(
+        $_DVWA[ 'recaptcha_private_key' ],
+        $_POST['g-recaptcha-response']
+    );
+
+    if (
+        $resp || 
+        (
+            $_POST[ 'g-recaptcha-response' ] == 'hidd3n_valu3'
+            && $_SERVER[ 'HTTP_USER_AGENT' ] == 'reCAPTCHA'
+        )
+  #+end_src
+  
+* Solution
+  The following python script bypasses the reCAPTCHA to change the
+  admin password
+
+  #+begin_src python
+
+  #+end_src

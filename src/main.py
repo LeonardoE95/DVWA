@@ -18,6 +18,8 @@ from command_injection.low import command_injection_low
 from command_injection.medium import command_injection_medium
 from command_injection.high import command_injection_high
 
+from insecure_captcha.high import insecure_captcha_high
+
 # --------------------------------
 
 def main():
@@ -43,8 +45,10 @@ def main():
     # command_injection_medium()
     # command_injection_high()
 
+    # -----------------------------
+    insecure_captcha_high()
+
 # --------------------------------
 
 if __name__ == "__main__":
     main()
-

